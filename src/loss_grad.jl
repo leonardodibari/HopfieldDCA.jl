@@ -1,22 +1,84 @@
-
-function wrapper(x::Vector, g::Vector, plmvar::HopPlmVar)
-
-    q = plmvar.q
-    N = plmvar.N
-    M = plmvar.M
-    Z = plmvar.Z
-    H = plmvar.H
-    W = plmvar.W
-    
-    K = x[1:N*N*H]
-    V = x[N*N*H+1:end]
-    g_K = g[1:N*N*H]
-    g_V = g[N*N*H+1:end]
-    return get_pl_and_grad(K, V, g_K, g_V, plm_var)
+function logsumexp(a::AbstractArray{<:Real}; dims=1)
+    m = maximum(a; dims=dims)
+    return m + log.(sum(exp.(a .- m); dims=dims))
 end
 
-function get_pl_and_grad(K::Array{Float64,3}, V::Array{Float64,2}, g_K::Vector{Float64}, g_V::Vector{Float64},
-     plmvar::HopPlmVar)
+function get_loss_and_grad_zyg2(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    plmvar::HopPlmVar, 
+    tmp)
+    
+    Z = plmvar.Z
+    W = plmvar.W
+    M = plmvar.M
+    lambdaK = plmvar.lambdaK
+    lambdaV = plmvar.lambdaV
+
+    #useful quantities
+    @tullio tmp.en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
+    tmp.log_z = logsumexp(tmp.en)[1,:,:]
+    @tullio tmp.loss[i] = W[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])/M
+    
+    #regularization
+    reg_v = lambdaV*sum(abs2, V)
+    @tullio tmp.reg_k[i] = lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+
+    return sum(tmp.loss) + sum(tmp.reg_k) + reg_v
+end
+
+
+function get_loss_and_grad_zyg(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    Z::Array{Int,2}, 
+    _w::Array{Float64, 1}, 
+    lambda::Float64)
+    
+    W = _w
+    
+    lambdaK = lambda
+    lambdaV = lambda
+
+    #useful quantities
+    @tullio en[a, i, m] := K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] := W[m]*(log_z[i, m] - data_en[i,m])
+    
+    #regularization
+    @tullio reg_v := lambdaV*V[a, h]*V[a, h]
+    @tullio reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+
+    return sum(loss) + sum(reg_k) + reg_v 
+end
+
+function get_loss_and_grad_zyg(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    plmvar::HopPlmVar)
+  
+    Z = plmvar.Z
+    W = plmvar.W
+    M = plmvar.M
+    lambdaK = plmvar.lambdaK
+    lambdaV = plmvar.lambdaV
+
+    #useful quantities
+    @tullio en[a, i, m] := K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] := W[m]*(log_z[i, m] - data_en[i,m])/M
+    
+    #regularization
+    @tullio reg_v := lambdaV*V[a, h]*V[a, h]
+    @tullio reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+
+    return sum(loss) + sum(reg_k) + reg_v 
+end
+
+function get_loss_and_grad2(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    plmvar::HopPlmVar,
+    tmp)
    
     q = plmvar.q
     N = plmvar.N
@@ -27,71 +89,166 @@ function get_pl_and_grad(K::Array{Float64,3}, V::Array{Float64,2}, g_K::Vector{F
     lambdaK = plmvar.lambdaK
     lambdaV = plmvar.lambdaV
 
-    grad_K = reshape(g_K, (N, N, H))
-    grad_V = reshape(g_V, (q, H))
-
-    # N = 30; i = 1; ; M = 50; H = 10; K = rand(N,N,H); V = rand(20,H); Z = rand(1:20, N, M); W = rand(M)
-    #order for optimal access is a, i/j, h, m
-    # deltas should be stored once for all, maybe in the struct
-    @tullio delta_i[a, i, m] := a .==  a .== Z[i, m] (a in 1:20)
-    @tullio delta_j[a, j, m] := a .==  a .== Z[j, m] (a in 1:20)
-    
-
     #useful quantities
-    @tullio v_prod[a, j, h, m] := V[a, h]*V[Z[j, m], h]
-    @tullio en[a, i, m] := K[i, j, h]*v_prod[a, j, h, m]* (j != i)
-    @tullio no_norm_prob[a, i, m] := exp(en[a, i, m])
-    @tullio z[i, m] := no_norm_prob[a, i, m]
-    log_z = log.(z)
-    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    @tullio tmp.v_prod[a, j, m, h] = V[a, h]*V[Z[j, m], h]
+    @tullio tmp.en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
+    tmp.log_z = logsumexp(tmp.en)[1,:,:]
+    @tullio tmp.loss[i] = W[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])/M
+    
+    #regularization
+    reg_v = lambdaV*sum(abs2, V)
+    @tullio tmp.reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
 
-    #parts of the gradient in lambdaK 
-    @tullio grad_k1[i, j, h, m] := no_norm_prob[a, i, m]*v_prod[a, j, h, m]/z[i,m]* (j != i)
-    @tullio grad_k2[i, j, h, m] := v_prod[Z[i, m], j, h, m]
+    @tullio tmp.prob[a,i,m] = exp(tmp.en[a,i,m] - tmp.log_z[i,m]) 
+    #parts of the gradient in K
+    @tullio tmp.grad_k1[i, j, h] = (W[m]/M) * tmp.prob[a, i, m]*tmp.v_prod[a, j, m, h] * (j!=i) 
+    @tullio tmp.grad_k2[i, j, h] = (W[m]/M) * tmp.v_prod[Z[i, m], j, m, h] * (j!=i) 
+
+    tmp.grad_K = tmp.grad_k1 .- tmp.grad_k2
 
     #parts of the gradient in V  
-    @tullio grad_v1[a, h, m] := no_norm_prob[a, i, m]*K[i, j, h]*V[Z[j, m], h]*(1+delta_j[a, j, m])/z[i,m]* (j != i)
-    @tullio grad_v2[h, m] := K[i, j, h]*(V[Z[j, m], h]*delta_i[a, i, m] + V[Z[i, m], h]*delta_j[a, j, m])
-
-    #likelihood
-    @tullio like[i] := W[m]*(log_z[i, m] - data_en[i,m])
-
+    @tullio tmp.grad_v1[l, m, h] := tmp.prob[a, i, m] * (V[Z[j, m], h]*plmvar.delta_la[l,a]+V[a,h]*plmvar.delta_j[l, j, m]) * K[i, j, h]*(j != i)
+    @tullio tmp.grad_v2[l, m, h] := K[i, j, h]*(j != i)*(V[Z[j, m], h]*plmvar.delta_i[l, i, m] + V[Z[i, m], h]*plmvar.delta_j[l, j, m])
+    
     #gradients
-    @tullio grad_K[i, j, h] = W[m]*(grad_k1[i, j, h, m] - grad_k2[i, j, h, m])
-    @tullio grad_V[a, h] = W[m]*(grad_v1[a, h, m] - grad_v2[h, m])
+    #@tullio grad_K[i, j, h] := (1/M)*W[m]*(grad_k1[i, j, m, h] * (j != i) - grad_k2[i, j, m, h]) 
+    @tullio tmp.tot_grad_K[i,j,h] := tmp.grad_K[i, j, h] + 2 * lambdaK * K[i,j,h] * (j!=i)
+    @tullio tmp.grad_V[l, h] := (1/M)*W[m]*(tmp.grad_v1[l, m, h] - tmp.grad_v2[l, m, h])
+    @tullio tmp.tot_grad_V[l, h] := tmp.grad_V[l, h] + 2 * lambdaV * V[l, h]
+
+    
+    return  tmp.tot_grad_K, tmp.tot_grad_V, sum(tmp.loss) + sum(tmp.reg_k) + reg_v
+end
 
 
+
+function get_loss_and_grad(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    plmvar::HopPlmVar)
+   
+    q = plmvar.q
+    N = plmvar.N
+    M = plmvar.M
+    Z = plmvar.Z
+    H = plmvar.H
+    W = plmvar.W
+    lambdaK = plmvar.lambdaK
+    lambdaV = plmvar.lambdaV
+
+    #useful quantities
+    @tullio v_prod[a, j, m, h] := V[a, h]*V[Z[j, m], h]
+    @tullio en[a, i, m] := K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] := W[m]*(log_z[i, m] - data_en[i,m])/M
+    
     #regularization
-    @tullio like[i] = like[i] + lambdaK*K[i, j, h]*K[i, j, h] + lambdaV*V[a, h]*V[a, h] * (j != i)
+    @tullio reg_v := lambdaV*V[a, h]*V[a, h]
+    @tullio reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
 
-    g_K = reshape(grad_K, prod(size(grad_K)))
-    g_V = reshape(grad_K, prod(size(grad_V)))
-     
-    return like 
+    @tullio prob[a,i,m] := exp(en[a,i,m] - log_z[i,m]) 
+    #parts of the gradient in K
+    @tullio grad_k1[i, j, h] := (W[m]/M) * prob[a, i, m]*v_prod[a, j, m, h] * (j!=i) 
+    @tullio grad_k2[i, j, h] := (W[m]/M) * v_prod[Z[i, m], j, m, h] * (j!=i) 
+
+    grad_K = grad_k1 .- grad_k2
+
+    #parts of the gradient in V  
+    @tullio grad_v1[l, m, h] := prob[a, i, m] * (V[Z[j, m], h]*plmvar.delta_la[l,a]+V[a,h]*plmvar.delta_j[l, j, m]) * K[i, j, h]*(j != i)
+    @tullio grad_v2[l, m, h] := K[i, j, h]*(j != i)*(V[Z[j, m], h]*plmvar.delta_i[l, i, m] + V[Z[i, m], h]*plmvar.delta_j[l, j, m])
+    
+    #gradients
+    #@tullio grad_K[i, j, h] := (1/M)*W[m]*(grad_k1[i, j, m, h] * (j != i) - grad_k2[i, j, m, h]) 
+    @tullio tot_grad_K[i,j,h] := grad_K[i, j, h] + 2 * lambdaK * K[i,j,h] * (j!=i)
+    @tullio grad_V[l, h] := (1/M)*W[m]*(grad_v1[l, m, h] - grad_v2[l, m, h])
+    @tullio tot_grad_V[l, h] := grad_V[l, h] + 2 * lambdaV * V[l, h]
+
+    
+    return  tot_grad_K, tot_grad_V, sum(loss) + sum(reg_k) + reg_v
 end
 
 
-"""NLopt tutotial
-using NLopt
+function check_with_zyg(plmvar::HopPlmVar)
+    K = rand(plmvar.N, plmvar.N, plmvar.H)
+    V = rand(plmvar.q, plmvar.H)
+    a1,b1 = gradient((p1,p2)->get_loss_and_grad_zyg(p1, p2, plmvar),K,V)
+    a,b,l = get_loss_and_grad(K, V, plmvar);
+    g_Zyg = vcat(a1[:],b1[:])
+    g_an = vcat(a[:],b[:])
+    #scatter(g_Zyg, g_an)
+    println("loss is $l")
+    println(sum(a .- a1)); println(sum(b.-b1));
+    return g_Zyg, g_an
+end
 
-function myfunc(x::Vector, grad::Vector)
-    if length(grad) > 0
-        grad[1] = 0
-        grad[2] = 2*x[2]
+function trainer_small(n_epoch::Int,
+    r_k::Float64, 
+    r_v::Float64, 
+    alg_var::HopPlmVar, 
+    print_rate::Int, 
+    output::Bool)
+
+    N = alg_var.N
+    H = alg_var.H
+    q = alg_var.q
+    K = rand(N,N,H); V = rand(q, H);
+    n_K = K; n_V = V;
+    for n in 1:n_epoch
+        g_K,g_V = gradient((p1,p2)->get_loss_and_grad_zyg(p1, p2, alg_var),n_K,n_V)
+        l = round(get_loss_and_grad_zyg(n_K, n_V, alg_var), digits=3)
+        if n%print_rate == 0
+            println("step $n, loss(zyg) $l")
+        end
+        n_K = n_K .- r_k.*g_K
+        n_V = n_V .- r_v.*g_V
     end
-    return x[2]^2
+
+    if output == true
+        return n_K, n_V
+    end
 end
 
+function trainer(plmvar, n_epochs; 
+    batch_size = 1000,
+    η = 0.005,
+    λ = 0.001,
+    init_m = Nothing, 
+    init_fun = rand, 
+    structfile = "../DataAttentionDCA/data/PF00014/PF00014_struct.dat",
+    savefile::Union{String, Nothing} = nothing)
+    
+    D = (plmvar.Z, plmvar.W)
+    H = plmvar.H
+    N = plmvar.N
+    q = plmvar.q
 
+    m = if init_m !== Nothing
+        init_m
+    else
+        (K = init_fun(N, N, H), V = init_fun(q,H))
+    end
+    t = setup(Adam(η), m)
 
-opt = Opt(:LD_MMA, 2)
-opt.lower_bounds = [-Inf, 0.]
-opt.xtol_rel = 1e-4
+    savefile !== nothing && (file = open(savefile,"a"))
+    
+    for i in 1:n_epochs
+        loader = DataLoader(D, batchsize = batch_size, shuffle = true)
+        for (z,w) in loader
+            _w = w/sum(w)
+            g = gradient(x->get_loss_and_grad_zyg(x.K, x.V, z, _w, λ), m)[1]
+            #println(typeof(g))
+            #println(size(g))
+            update!(t,m,g)
+        end
+        s = score(m.K,m.V)
+        PPV = compute_PPV(s,structfile)
+        l = round(get_loss_and_grad_zyg(m.K, m.V, plmvar), digits = 5)
+        p = round((PPV[N]),digits=3)
+        println("Epoch $i loss = $l \t PPV@L = $p \t First Error = $(findfirst(x->x!=1, PPV))")
+        savefile !== nothing && println(file, "Epoch $i loss = $l \t PPV@L = $p \t First Error = $(findfirst(x->x!=1, PPV))")
+    end
 
-opt.min_objective = myfunc
-
-(minf,minx,ret) = optimize(opt, [1.234, 5.4])
-numevals = opt.numevals # the number of function evaluations
-println("got $minf at $minx after $numevals iterations (returned $ret)")
-
-"""
+    savefile !== nothing && close(file)
+    return m
+end
