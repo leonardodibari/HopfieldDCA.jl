@@ -81,6 +81,66 @@ function get_loss_and_grad_zyg(K::Array{Float64,3},
     return sum(loss) + sum(reg_k) + reg_v 
 end
 
+function get_loss_and_grad_zyg_pagnani(K::Array{Float64,3},
+    V::Array{Float64,2},
+    plmvar::HopPlmVar)
+
+    Z = plmvar.Z
+    W = plmvar.W
+    M = size(Z,2)
+    lambdaK = plmvar.lambdaK
+    lambdaV = plmvar.lambdaV
+
+    #useful quantities
+    W .= W/sum(W)
+
+    en = zeros(plmvar.q, plmvar.N,M)
+    data_en = zeros(plmvar.N, M)
+    log_z = zeros(plmvar.N, M)
+    loss = zeros(plmvar.N)
+    reg_v = 0.0
+    
+    @inbounds @simd for m in 1:M
+        for i in axes(K,1)
+            for a in axes(en,1)
+                for j in axes(K,2)
+                    if j != i
+                        for h in axes(K,3)
+                            en[a, i, m] += K[i, j, h]*V[a, h]*V[Z[j, m], h]
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    log_z = logsumexp(en)[1, :, :]
+    @inbounds @fastmath for i in 1:plmvar.N
+        for m in 1:M
+            data_en[i, m] = en[Z[i, m], i, m]
+            loss[i] += W[m] * (log_z[i, m] - data_en[i, m])
+        end
+    end
+
+    reg_v = lambdaV*sum(abs2, V)
+    sreg_k = 0.0
+    @inbounds @fastmath for i in axes(K,1)
+        for j in axes(K,2)
+            if j != i
+                for h in 1:plmvar.H
+                    sreg_k += K[i,j,h] * K[i,j,h]
+                end
+            end
+        end
+    end
+    sreg_k *= lambdaK
+
+    #regularization
+    # @tullio reg_v := lambdaV * V[a, h] * V[a, h]
+    # @tullio reg_k[i] := lambdaK * K[i, j, h] * K[i, j, h] * (j != i)
+    println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) sumn=$(sum(data_en))")
+    return sum(loss)+ sreg_k + reg_v
+end
 function get_loss_and_grad_zyg(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     plmvar::HopPlmVar)
@@ -90,18 +150,18 @@ function get_loss_and_grad_zyg(K::Array{Float64,3},
     M = plmvar.M
     lambdaK = plmvar.lambdaK
     lambdaV = plmvar.lambdaV
-
-    #useful quantities
-    @tullio en[a, i, m] := K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    Wt = W/sum(W)
+    
+    @tullio en[a, i, m] :=  K[i, j, h] * V[a, h] * V[Z[j, m], h] * (j != i)
     @tullio data_en[i, m] := en[Z[i, m], i, m]
     log_z = logsumexp(en)[1,:,:]
-    @tullio loss[i] := W[m]*(log_z[i, m] - data_en[i,m])/M
+    @tullio loss[i] := Wt[m]*(log_z[i, m] - data_en[i,m])
     
     #regularization
     @tullio reg_v := lambdaV*V[a, h]*V[a, h]
-    @tullio reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
-
-    return sum(loss) + sum(reg_k) + reg_v 
+    @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
+    return sum(loss) + sreg_k + reg_v 
 end
 
 function get_loss_and_grad2(K::Array{Float64,3}, 

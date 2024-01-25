@@ -29,15 +29,16 @@ struct HopPlmVar
     ratio::Float64
     
     function HopPlmVar(H, lambdaK, lambdaV, Z)
-        println("creating alg ")
+        println("creating alg")
         W, M_eff = compute_weights(Z,0.2); 
-        N = size(Z)[1]; q = maximum(Z);  q2=q*q;
+        N = size(Z,1); q = maximum(Z);  q2=q*q;
         delta_la = Matrix(I,q,q) ; 
         @tullio delta_j[a, j, m] := a == Z[j, m] (a in 1:q); 
         @tullio delta_i[a, i, m] := a == Z[i, m] (a in 1:q);
-        potts_par = (N/2)*(N-1)*q2 
-        att_par = (N/2)*(N-1)*H  + q*H
+        potts_par = ((N*(N-1))>>1)*q2 
+        att_par = H*N^2  + q*H
         ratio = att_par / potts_par
+        println("att_par=$att_par, potts_par=$potts_par, ratio=$ratio N=$N")
         new(N, M_eff, q, q2, H, lambdaK, lambdaV, Z, W, delta_i, delta_j, delta_la, ratio)
     end
 end

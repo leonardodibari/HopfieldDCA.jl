@@ -25,15 +25,15 @@ function inflate_matrix(J::Array{Float64,3},N)
     return Jt
 end
 
-function correct_APC(S::Matrix)
-    N = size(S, 1)
-    Si = sum(S, dims=1)
-    Sj = sum(S, dims=2)
-    Sa = sum(S) * (1 - 1/N)
+# function correct_APC(S::Matrix)
+#     N = size(S, 1)
+#     Si = sum(S, dims=1)
+#     Sj = sum(S, dims=2)
+#     Sa = sum(S) * (1 - 1/N)
 
-    S -= (Sj * Si) / Sa
-    return S
-end
+#     S -= (Sj * Si) / Sa
+#     return S
+# end
 
 function compute_APC(J::Array{Float64,4},N,q)
     FN = fill(0.0, N,N)
@@ -65,18 +65,18 @@ function read_fasta(filename::String,max_gap_fraction::Real, theta::Any, remove_
     return W, Zint,N,M,q
 end
 
-function compute_ranking(S::Matrix{Float64}, min_separation::Int = 5)
-    N = size(S, 1)
-    R = Array{Tuple{Int,Int,Float64},1}(undef, div((N-min_separation)*(N-min_separation+1), 2))
-    counter = 0
-    for i = 1:N-min_separation, j = i+min_separation:N
-        counter += 1
-        R[counter] = (i, j, S[j,i])
-    end
+# function compute_ranking(S::Matrix{Float64}, min_separation::Int = 5)
+#     N = size(S, 1)
+#     R = Array{Tuple{Int,Int,Float64},1}(undef, div((N-min_separation)*(N-min_separation+1), 2))
+#     counter = 0
+#     for i = 1:N-min_separation, j = i+min_separation:N
+#         counter += 1
+#         R[counter] = (i, j, S[j,i])
+#     end
 
-    sort!(R, by=x->x[3], rev=true)
-    return R 
-end
+#     sort!(R, by=x->x[3], rev=true)
+#     return R 
+# end
 
 function sumexp(vec::Array{Float64,1})
     mysum = 0.0
