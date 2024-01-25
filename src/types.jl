@@ -26,6 +26,7 @@ struct HopPlmVar
     delta_i::Array{Bool, 3}
     delta_j::Array{Bool, 3}
     delta_la::Array{Bool,2}
+    ratio::Float64
     
     function HopPlmVar(H, lambdaK, lambdaV, Z)
         println("creating alg ")
@@ -34,7 +35,10 @@ struct HopPlmVar
         delta_la = Matrix(I,q,q) ; 
         @tullio delta_j[a, j, m] := a == Z[j, m] (a in 1:q); 
         @tullio delta_i[a, i, m] := a == Z[i, m] (a in 1:q);
-        new(N,M_eff,q,q2,H,lambdaK, lambdaV, Z, W, delta_i, delta_j, delta_la)
+        potts_par = (N/2)*(N-1)*q2 
+        att_par = (N/2)*(N-1)*H  + q*H
+        ratio = att_par / potts_par
+        new(N, M_eff, q, q2, H, lambdaK, lambdaV, Z, W, delta_i, delta_j, delta_la, ratio)
     end
 end
 

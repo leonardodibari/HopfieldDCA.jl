@@ -25,6 +25,6 @@ include("dca_score.jl")
 
 
 export HopPlmVar, get_loss_and_grad, get_loss_and_grad_zyg, trainer_small, define_var, check_with_zyg
-export create_storage_arr, get_loss_and_grad_zyg2, StgArr, get_loss_and_grad2, trainer
+export create_storage_arr, get_loss_and_grad_zyg2, get_loss_and_grad_zyg3, StgArr, get_loss_and_grad2, trainer
 
 end

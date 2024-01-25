@@ -1,0 +1,10 @@
+Epoch 1 loss = 311.26594 	 PPV@L = 0.377 	 First Error = 1
+Epoch 2 loss = 291.25509 	 PPV@L = 0.377 	 First Error = 1
+Epoch 3 loss = 273.01978 	 PPV@L = 0.396 	 First Error = 1
+Epoch 4 loss = 256.50442 	 PPV@L = 0.396 	 First Error = 1
+Epoch 5 loss = 241.81546 	 PPV@L = 0.396 	 First Error = 1
+Epoch 6 loss = 229.10887 	 PPV@L = 0.396 	 First Error = 1
+Epoch 7 loss = 218.43307 	 PPV@L = 0.396 	 First Error = 1
+Epoch 8 loss = 209.60491 	 PPV@L = 0.396 	 First Error = 1
+Epoch 9 loss = 202.25354 	 PPV@L = 0.396 	 First Error = 1
+Epoch 10 loss = 195.99042 	 PPV@L = 0.415 	 First Error = 1

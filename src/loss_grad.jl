@@ -27,6 +27,35 @@ function get_loss_and_grad_zyg2(K::Array{Float64,3},
     return sum(tmp.loss) + sum(tmp.reg_k) + reg_v
 end
 
+function get_loss_and_grad_zyg3(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    plmvar::HopPlmVar, 
+    en::Array{Float64,3},
+    data_en::Array{Float64,2},
+    loss::Array{Float64,1},
+    reg_k::Array{Float64,1})
+    
+    Z = plmvar.Z
+    W = plmvar.W
+    M = plmvar.M
+    lambdaK = plmvar.lambdaK
+    lambdaV = plmvar.lambdaV
+
+    #useful quantities
+    @tullio en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio data_en[i, m] = en[Z[i, m], i, m]
+    #log_z = logsumexp(en)[1,:,:]
+    log_z = view(logsumexp(en),1,:,:)
+    println("updated")
+    @tullio loss[i] = W[m]*(log_z[i, m] - data_en[i,m])/M
+    
+    #regularization
+    reg_v = lambdaV*sum(abs2, V)
+    @tullio reg_k[i] = lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+
+    return sum(loss) + sum(reg_k) + reg_v
+end
+
 
 function get_loss_and_grad_zyg(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
@@ -209,6 +238,8 @@ function trainer_small(n_epoch::Int,
     end
 end
 
+
+#per H =10 e 1 epoca (N = 53, M = 2785) sono 20 secondi, il tempo in teoria è 2*H*10
 function trainer(plmvar, n_epochs; 
     batch_size = 1000,
     η = 0.005,
