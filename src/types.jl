@@ -35,7 +35,8 @@ struct HopPlmVar
         delta_la = Matrix(I,q,q) ; 
         @tullio delta_j[a, j, m] := a == Z[j, m] (a in 1:q); 
         @tullio delta_i[a, i, m] := a == Z[i, m] (a in 1:q);
-        potts_par = ((N*(N-1))>>1)*q2 
+        #potts_par = ((N*(N-1))>>1)*q2
+        potts_par = N*(N-1)*q*q/2 
         att_par = H*N^2  + q*H
         ratio = att_par / potts_par
         println("att_par=$att_par, potts_par=$potts_par, ratio=$ratio N=$N")
@@ -95,7 +96,7 @@ end
 
 function define_var(filepath::String, H::Int, lambdaK::Float64, lambdaV::Float64, M::Int)
 
-    Z = read_fasta_alignment(filepath,0)[:,1:M];
+    Z = read_fasta_alignment(filepath,0.99)[:,1:M];
 
     alg_var = HopPlmVar(H, lambdaK, lambdaV, Z)
     
@@ -103,7 +104,8 @@ function define_var(filepath::String, H::Int, lambdaK::Float64, lambdaV::Float64
 end
 
 function define_var(filepath::String, H::Int, lambdaK::Float64, lambdaV::Float64)
-    Z = read_fasta_alignment(filepath,0);
+    Z = read_fasta_alignment(filepath,0.99);
     alg_var = HopPlmVar(H, lambdaK, lambdaV, Z)
+    println("updated")
     return alg_var
 end   

@@ -3,7 +3,7 @@ function logsumexp(a::AbstractArray{<:Real}; dims=1)
     return m + log.(sum(exp.(a .- m); dims=dims))
 end
 
-function get_loss_and_grad_zyg2(K::Array{Float64,3}, 
+function get_loss_2(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     plmvar::HopPlmVar, 
     tmp)
@@ -27,7 +27,7 @@ function get_loss_and_grad_zyg2(K::Array{Float64,3},
     return sum(tmp.loss) + sum(tmp.reg_k) + reg_v
 end
 
-function get_loss_and_grad_zyg3(K::Array{Float64,3}, 
+function get_loss_3(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     plmvar::HopPlmVar, 
     en::Array{Float64,3},
@@ -57,7 +57,7 @@ function get_loss_and_grad_zyg3(K::Array{Float64,3},
 end
 
 
-function get_loss_and_grad_zyg(K::Array{Float64,3}, 
+function get_loss(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     Z::Array{Int,2}, 
     _w::Array{Float64, 1}, 
@@ -81,7 +81,7 @@ function get_loss_and_grad_zyg(K::Array{Float64,3},
     return sum(loss) + sum(reg_k) + reg_v 
 end
 
-function get_loss_and_grad_zyg_pagnani(K::Array{Float64,3},
+function get_loss_pagnani(K::Array{Float64,3},
     V::Array{Float64,2},
     plmvar::HopPlmVar)
 
@@ -141,13 +141,13 @@ function get_loss_and_grad_zyg_pagnani(K::Array{Float64,3},
     println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) sumn=$(sum(data_en))")
     return sum(loss)+ sreg_k + reg_v
 end
-function get_loss_and_grad_zyg(K::Array{Float64,3}, 
+
+function get_loss_zyg(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     plmvar::HopPlmVar)
   
     Z = plmvar.Z
     W = plmvar.W
-    M = plmvar.M
     lambdaK = plmvar.lambdaK
     lambdaV = plmvar.lambdaV
     Wt = W/sum(W)
@@ -216,52 +216,50 @@ function get_loss_and_grad(K::Array{Float64,3},
     V::Array{Float64,2}, 
     plmvar::HopPlmVar)
    
-    q = plmvar.q
-    N = plmvar.N
-    M = plmvar.M
+
     Z = plmvar.Z
-    H = plmvar.H
     W = plmvar.W
     lambdaK = plmvar.lambdaK
     lambdaV = plmvar.lambdaV
+    Wt = W/sum(W)
 
+    println("useful quantities")
     #useful quantities
-    @tullio v_prod[a, j, m, h] := V[a, h]*V[Z[j, m], h]
-    @tullio en[a, i, m] := K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
-    @tullio data_en[i, m] := en[Z[i, m], i, m]
-    log_z = logsumexp(en)[1,:,:]
-    @tullio loss[i] := W[m]*(log_z[i, m] - data_en[i,m])/M
+    @time @tullio v_prod[a, j, m, h] := V[a, h]*V[Z[j, m], h]
+    @time @tullio en[a, i, m] := K[i, j, h]*(j != i)*v_prod[a, j, m, h]
+    @time @tullio data_en[i, m] := en[Z[i, m], i, m]
+    @time log_z = logsumexp(en)[1,:,:]
+    @time @tullio loss[i] := Wt[m]*(log_z[i, m] - data_en[i,m])
     
-    #regularization
-    @tullio reg_v := lambdaV*V[a, h]*V[a, h]
-    @tullio reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+    @time @tullio reg_v := lambdaV*V[a, h]*V[a, h]
+    @time @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
+    println("grad k")
+    @time @tullio prob[a,i,m] := exp(en[a,i,m] - log_z[i,m]) 
+    @time @tullio grad_k1[i, j, h] := Wt[m] * prob[a, i, m]*v_prod[a, j, m, h] * (j!=i) 
+    @time @tullio grad_k2[i, j, h] := Wt[m] * v_prod[Z[i, m], j, m, h] * (j!=i) 
+    @time grad_K = grad_k1 .- grad_k2
 
-    @tullio prob[a,i,m] := exp(en[a,i,m] - log_z[i,m]) 
-    #parts of the gradient in K
-    @tullio grad_k1[i, j, h] := (W[m]/M) * prob[a, i, m]*v_prod[a, j, m, h] * (j!=i) 
-    @tullio grad_k2[i, j, h] := (W[m]/M) * v_prod[Z[i, m], j, m, h] * (j!=i) 
-
-    grad_K = grad_k1 .- grad_k2
-
-    #parts of the gradient in V  
-    @tullio grad_v1[l, m, h] := prob[a, i, m] * (V[Z[j, m], h]*plmvar.delta_la[l,a]+V[a,h]*plmvar.delta_j[l, j, m]) * K[i, j, h]*(j != i)
-    @tullio grad_v2[l, m, h] := K[i, j, h]*(j != i)*(V[Z[j, m], h]*plmvar.delta_i[l, i, m] + V[Z[i, m], h]*plmvar.delta_j[l, j, m])
+    println("grad v")
+    @time @tullio gg_A[l,m,h]= prob[a, i, m]*V[Z[j, m], h]* K[i, j, h]*(j != i)
+    @time @tullio gg_B[l,m,h]= prob[a, i, m]*V[Z[j, m], h]* V[a,h]*plmvar.delta_j[l, j, m]*K[i, j, h]*(j != i)
     
-    #gradients
-    #@tullio grad_K[i, j, h] := (1/M)*W[m]*(grad_k1[i, j, m, h] * (j != i) - grad_k2[i, j, m, h]) 
-    @tullio tot_grad_K[i,j,h] := grad_K[i, j, h] + 2 * lambdaK * K[i,j,h] * (j!=i)
-    @tullio grad_V[l, h] := (1/M)*W[m]*(grad_v1[l, m, h] - grad_v2[l, m, h])
-    @tullio tot_grad_V[l, h] := grad_V[l, h] + 2 * lambdaV * V[l, h]
-
+    @time @tullio grad_v1[l, m, h] := prob[a, i, m] * (V[Z[j, m], h]*plmvar.delta_la[l,a]+V[a,h]*plmvar.delta_j[l, j, m]) * K[i, j, h]*(j != i)
+    @time @tullio grad_v2[l, m, h] := K[i, j, h]*(j != i)*(V[Z[j, m], h]*plmvar.delta_i[l, i, m] + V[Z[i, m], h]*plmvar.delta_j[l, j, m])
+    @time @tullio grad_V[l, h] := Wt[m]*(grad_v1[l, m, h] - grad_v2[l, m, h])
     
-    return  tot_grad_K, tot_grad_V, sum(loss) + sum(reg_k) + reg_v
+    println("reg grad")
+    @time @tullio tot_grad_K[i,j,h] := grad_K[i, j, h] + 2 * lambdaK * K[i,j,h] * (j!=i)
+    @time @tullio tot_grad_V[l, h] := grad_V[l, h] + 2 * lambdaV * V[l, h]
+    println("updated")
+
+    return  tot_grad_K, tot_grad_V, sum(loss) + sreg_k + reg_v 
 end
-
 
 function check_with_zyg(plmvar::HopPlmVar)
     K = rand(plmvar.N, plmvar.N, plmvar.H)
     V = rand(plmvar.q, plmvar.H)
-    a1,b1 = gradient((p1,p2)->get_loss_and_grad_zyg(p1, p2, plmvar),K,V)
+    a1,b1 = gradient((p1,p2)->get_loss(p1, p2, plmvar),K,V)
     a,b,l = get_loss_and_grad(K, V, plmvar);
     g_Zyg = vcat(a1[:],b1[:])
     g_an = vcat(a[:],b[:])
@@ -271,32 +269,8 @@ function check_with_zyg(plmvar::HopPlmVar)
     return g_Zyg, g_an
 end
 
-function trainer_small(n_epoch::Int,
-    r_k::Float64, 
-    r_v::Float64, 
-    alg_var::HopPlmVar, 
-    print_rate::Int, 
-    output::Bool)
 
-    N = alg_var.N
-    H = alg_var.H
-    q = alg_var.q
-    K = rand(N,N,H); V = rand(q, H);
-    n_K = K; n_V = V;
-    for n in 1:n_epoch
-        g_K,g_V = gradient((p1,p2)->get_loss_and_grad_zyg(p1, p2, alg_var),n_K,n_V)
-        l = round(get_loss_and_grad_zyg(n_K, n_V, alg_var), digits=3)
-        if n%print_rate == 0
-            println("step $n, loss(zyg) $l")
-        end
-        n_K = n_K .- r_k.*g_K
-        n_V = n_V .- r_v.*g_V
-    end
 
-    if output == true
-        return n_K, n_V
-    end
-end
 
 
 #per H =10 e 1 epoca (N = 53, M = 2785) sono 20 secondi, il tempo in teoria è 2*H*10
@@ -327,7 +301,7 @@ function trainer(plmvar, n_epochs;
         loader = DataLoader(D, batchsize = batch_size, shuffle = true)
         for (z,w) in loader
             _w = w/sum(w)
-            g = gradient(x->get_loss_and_grad_zyg(x.K, x.V, z, _w, λ), m)[1]
+            g = gradient(x->get_loss(x.K, x.V, z, _w, λ), m)[1]
             #println(typeof(g))
             #println(size(g))
             update!(t,m,g)
