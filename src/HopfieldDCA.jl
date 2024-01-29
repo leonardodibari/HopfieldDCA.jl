@@ -20,7 +20,6 @@ using Tullio
 include("types.jl")
 include("utils.jl")
 include("loss_grad.jl")
-include("plm_hopfield.jl")
 include("dca_score.jl")
 
 
