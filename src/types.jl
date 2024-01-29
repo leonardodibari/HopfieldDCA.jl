@@ -15,12 +15,8 @@ end
 
 struct HopPlmVar
     N::Int
-    M::Float64
     q::Int    
-    q2::Int
     H::Int
-    lambdaK::Float64
-    lambdaV::Float64
     Z::Array{Int,2}
     K::Array{Float64,3}
     V::Array{Float64,2}
@@ -30,19 +26,19 @@ struct HopPlmVar
     delta_la::Array{Bool,2}
     ratio::Float64
     
-    function HopPlmVar(H, lambdaK, lambdaV, Z)
-        println("creating")
-        W, M_eff = compute_weights(Z,0.2); 
-        N = size(Z,1); q = maximum(Z);  q2=q*q;
+    function HopPlmVar(H, fastafile)
+        println("new version")
+        Z, W = quickread(fastafile)
+        N = size(Z,1); q = maximum(Z); 
         delta_la = Matrix(I,q,q) ; 
-        K = rand(H,N,N); V = rand(q,H);
+        K = rand(N, N, H); V = rand(q, H);
         @tullio delta_j[a, j, m] := a == Z[j, m] (a in 1:q); 
         @tullio delta_i[a, i, m] := a == Z[i, m] (a in 1:q);
         potts_par = N*(N-1)*q*q/2 
         att_par = H*N^2  + q*H
         ratio = att_par / potts_par
         println("ratio=$ratio N=$N")
-        new(N, M_eff, q, q2, H, lambdaK, lambdaV, Z, K, V, W, delta_i, delta_j, delta_la, ratio)
+        new(N, q, H, Z, K, V, W, delta_i, delta_j, delta_la, ratio)
     end
 end
 
@@ -95,19 +91,3 @@ mutable struct StgArr
         grad_k1, grad_k2, grad_K, tot_grad_K, grad_v1, grad_v2, grad_V, tot_grad_V)
     end
 end
-
-function define_var(filepath::String, H::Int, lambdaK::Float64, lambdaV::Float64, M::Int)
-
-    Z = read_fasta_alignment(filepath,0.99)[:,1:M];
-
-    alg_var = HopPlmVar(H, lambdaK, lambdaV, Z)
-    
-    return alg_var
-end
-
-function define_var(filepath::String, H::Int, lambdaK::Float64, lambdaV::Float64)
-    Z = read_fasta_alignment(filepath,0.99);
-    alg_var = HopPlmVar(H, lambdaK, lambdaV, Z)
-    println("updated")
-    return alg_var
-end   

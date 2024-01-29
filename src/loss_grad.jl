@@ -1,90 +1,50 @@
-function get_loss_2(K::Array{Float64,3}, 
-    V::Array{Float64,2}, 
-    plmvar::HopPlmVar, 
-    tmp)
-    
-    Z = plmvar.Z
-    W = plmvar.W
-    M = plmvar.M
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
 
-    #useful quantities
-    @tullio tmp.en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
-    @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
-    tmp.log_z = logsumexp(tmp.en)[1,:,:]
-    @tullio tmp.loss[i] = W[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])/M
+
+function get_loss_new(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    Z::Array{Int,2}, 
+    _w::Array{Float64, 1}; lambdaK = 0.005, lambdaV = 0.005)
+   
+    @tullio J[i,j,a,b] := K[h,i,j]*V[h,a]*V[h,b]*(j!=i)
+    @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
+    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
     #regularization
-    reg_v = lambdaV*sum(abs2, V)
-    @tullio tmp.reg_k[i] = lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
-
-    return sum(tmp.loss) + sum(tmp.reg_k) + reg_v
+    @tullio reg_v := lambdaV*V[h,a]*V[h,a]
+    @tullio sreg_k := lambdaK * K[h,i,j] * K[h,i,j] * (j!=i)
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
+    return sum(loss) + sreg_k + reg_v  
 end
-
-function get_loss_3(K::Array{Float64,3}, 
-    V::Array{Float64,2}, 
-    plmvar::HopPlmVar, 
-    en::Array{Float64,3},
-    data_en::Array{Float64,2},
-    loss::Array{Float64,1},
-    reg_k::Array{Float64,1})
-    
-    Z = plmvar.Z
-    W = plmvar.W
-    M = plmvar.M
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
-
-    #useful quantities
-    @tullio en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
-    @tullio data_en[i, m] = en[Z[i, m], i, m]
-    #log_z = logsumexp(en)[1,:,:]
-    log_z = view(logsumexp(en),1,:,:)
-    println("updated")
-    @tullio loss[i] = W[m]*(log_z[i, m] - data_en[i,m])/M
-    
-    #regularization
-    reg_v = lambdaV*sum(abs2, V)
-    @tullio reg_k[i] = lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
-
-    return sum(loss) + sum(reg_k) + reg_v
-end
-
 
 function get_loss(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
-    Z::Array{Int8,2}, 
-    _w::Array{Float64, 1}, 
-    lambda::Float64)
+    Z::Array{Int,2}, 
+    _w::Array{Float64, 1}; lambdaK = 0.005, lambdaV = 0.005)
     
-    W = _w
     
-    lambdaK = lambda
-    lambdaV = lambda
-
-    #useful quantities
-    @tullio en[a, i, m] := K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio J[i,j,a,b] := K[i,j,h]*V[a,h]*V[b,h]*(j!=i)
+    @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
     log_z = logsumexp(en)[1,:,:]
-    @tullio loss[i] := W[m]*(log_z[i, m] - data_en[i,m])
+    @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
     #regularization
     @tullio reg_v := lambdaV*V[a, h]*V[a, h]
-    @tullio reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
-
-    return sum(loss) + sum(reg_k) + reg_v 
+    @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
+    return sum(loss) + sreg_k + reg_v  
 end
 
 function get_loss_pagnani(K::Array{Float64,3},
     V::Array{Float64,2},
-    plmvar::HopPlmVar)
+    plmvar::HopPlmVar;lambdaK = 0.005, lambdaV = 0.005)
 
     Z = plmvar.Z
     W = plmvar.W
     M = size(Z,2)
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
+   
 
     #useful quantities
     W .= W/sum(W)
@@ -130,27 +90,22 @@ function get_loss_pagnani(K::Array{Float64,3},
     end
     sreg_k *= lambdaK
 
-    #regularization
-    # @tullio reg_v := lambdaV * V[a, h] * V[a, h]
-    # @tullio reg_k[i] := lambdaK * K[i, j, h] * K[i, j, h] * (j != i)
-    println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) sumn=$(sum(data_en))")
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) sumn=$(sum(data_en))")
     return sum(loss)+ sreg_k + reg_v
 end
 
 function get_loss_zyg_francesco(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
-    plmvar::HopPlmVar)
+    plmvar::HopPlmVar;lambdaK = 0.005, lambdaV = 0.005)
   
     Z = plmvar.Z
     W = plmvar.W
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
+    
     Wt = W/sum(W)
     
 
     @tullio J[i,j,a,b] := K[i,j,h]*V[a,h]*V[b,h]*(j!=i)
     @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
-    #@tullio en[a, i, m] :=  K[i, j, h] * V[a, h] * V[Z[j, m], h] * (j != i)
     @tullio data_en[i, m] := en[Z[i, m], i, m]
     log_z = logsumexp(en)[1,:,:]
     @tullio loss[i] := Wt[m]*(log_z[i, m] - data_en[i,m])
@@ -164,12 +119,10 @@ end
 
 function get_loss_zyg(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
-    plmvar::HopPlmVar)
+    plmvar::HopPlmVar;lambdaK = 0.005, lambdaV = 0.005)
   
     Z = plmvar.Z
     W = plmvar.W
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
     Wt = W/sum(W)
     
 
@@ -183,52 +136,6 @@ function get_loss_zyg(K::Array{Float64,3},
     @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
     #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
     return sum(loss) + sreg_k + reg_v 
-end
-
-function get_loss_and_grad2(K::Array{Float64,3}, 
-    V::Array{Float64,2}, 
-    plmvar::HopPlmVar,
-    tmp)
-   
-    q = plmvar.q
-    N = plmvar.N
-    M = plmvar.M
-    Z = plmvar.Z
-    H = plmvar.H
-    W = plmvar.W
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
-
-    #useful quantities
-    @tullio tmp.v_prod[a, j, m, h] = V[a, h]*V[Z[j, m], h]
-    @tullio tmp.en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
-    @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
-    tmp.log_z = logsumexp(tmp.en)[1,:,:]
-    @tullio tmp.loss[i] = W[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])/M
-    
-    #regularization
-    reg_v = lambdaV*sum(abs2, V)
-    @tullio tmp.reg_k[i] := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
-
-    @tullio tmp.prob[a,i,m] = exp(tmp.en[a,i,m] - tmp.log_z[i,m]) 
-    #parts of the gradient in K
-    @tullio tmp.grad_k1[i, j, h] = (W[m]/M) * tmp.prob[a, i, m]*tmp.v_prod[a, j, m, h] * (j!=i) 
-    @tullio tmp.grad_k2[i, j, h] = (W[m]/M) * tmp.v_prod[Z[i, m], j, m, h] * (j!=i) 
-
-    tmp.grad_K = tmp.grad_k1 .- tmp.grad_k2
-
-    #parts of the gradient in V  
-    @tullio tmp.grad_v1[l, m, h] := tmp.prob[a, i, m] * (V[Z[j, m], h]*plmvar.delta_la[l,a]+V[a,h]*plmvar.delta_j[l, j, m]) * K[i, j, h]*(j != i)
-    @tullio tmp.grad_v2[l, m, h] := K[i, j, h]*(j != i)*(V[Z[j, m], h]*plmvar.delta_i[l, i, m] + V[Z[i, m], h]*plmvar.delta_j[l, j, m])
-    
-    #gradients
-    #@tullio grad_K[i, j, h] := (1/M)*W[m]*(grad_k1[i, j, m, h] * (j != i) - grad_k2[i, j, m, h]) 
-    @tullio tmp.tot_grad_K[i,j,h] := tmp.grad_K[i, j, h] + 2 * lambdaK * K[i,j,h] * (j!=i)
-    @tullio tmp.grad_V[l, h] := (1/M)*W[m]*(tmp.grad_v1[l, m, h] - tmp.grad_v2[l, m, h])
-    @tullio tmp.tot_grad_V[l, h] := tmp.grad_V[l, h] + 2 * lambdaV * V[l, h]
-
-    
-    return  tmp.tot_grad_K, tmp.tot_grad_V, sum(tmp.loss) + sum(tmp.reg_k) + reg_v
 end
 
 
@@ -277,18 +184,6 @@ function get_loss_and_grad(K::Array{Float64,3},
     return  tot_grad_K, tot_grad_V, sum(loss) + sreg_k + reg_v 
 end
 
-function check_with_zyg(plmvar::HopPlmVar)
-    K = rand(plmvar.N, plmvar.N, plmvar.H)
-    V = rand(plmvar.q, plmvar.H)
-    a1,b1 = gradient((p1,p2)->get_loss(p1, p2, plmvar),K,V)
-    a,b,l = get_loss_and_grad(K, V, plmvar);
-    g_Zyg = vcat(a1[:],b1[:])
-    g_an = vcat(a[:],b[:])
-    #scatter(g_Zyg, g_an)
-    println("loss is $l")
-    println(sum(a .- a1)); println(sum(b.-b1));
-    return g_Zyg, g_an
-end
 
 
 
@@ -322,14 +217,15 @@ function trainer(plmvar, n_epochs;
         loader = DataLoader(D, batchsize = batch_size, shuffle = true)
         for (z,w) in loader
             _w = w/sum(w)
-            g = gradient(x->get_loss(x.K, x.V, z, _w, λ), m)[1]
+            g = gradient(x->get_loss(x.K, x.V, z, _w; lambdaK = λ, lambdaV = λ), m)[1]
             #println(typeof(g))
             #println(size(g))
             update!(t,m,g)
         end
+        _w = plmvar.W/sum(plmvar.W)
         s = score(m.K,m.V)
         PPV = compute_PPV(s,structfile)
-        l = round(get_loss_and_grad_zyg(m.K, m.V, plmvar), digits = 5)
+        l = round(get_loss(m.K, m.V, plmvar.Z, _w; lambdaK = λ, lambdaV = λ), digits = 5)
         p = round((PPV[N]),digits=3)
         println("Epoch $i loss = $l \t PPV@L = $p \t First Error = $(findfirst(x->x!=1, PPV))")
         savefile !== nothing && println(file, "Epoch $i loss = $l \t PPV@L = $p \t First Error = $(findfirst(x->x!=1, PPV))")

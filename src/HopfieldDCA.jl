@@ -6,7 +6,7 @@ using LinearAlgebra
 using PyPlot
 using PottsGauge
 using DelimitedFiles
-#using NLopt
+
 import Flux
 import Flux: DataLoader, Adam, gradient
 import Flux.Optimise: update! 
@@ -16,15 +16,12 @@ import DCAUtils: read_fasta_alignment, remove_duplicate_sequences, compute_weigh
 using LoopVectorization
 using Tullio
 
-
 include("types.jl")
 include("utils.jl")
 include("loss_grad.jl")
-
 include("dca_score.jl")
 
 export quickread
-export HopPlmVar, get_loss_and_grad, get_loss, define_var, check_with_zyg
-export create_storage_arr, get_loss_2, get_loss_3, StgArr, get_loss_and_grad2, trainer
+export HopPlmVar, get_loss, get_loss_new, get_loss_zyg_francesco, get_loss_zyg, get_loss_pagnani, trainer
 
 end
