@@ -20,10 +20,10 @@ using Tullio
 include("types.jl")
 include("utils.jl")
 include("loss_grad.jl")
-include("plm_hopfield.jl")
+#include("plm_hopfield.jl")
 include("dca_score.jl")
 
-
+export quickread
 export HopPlmVar, get_loss_and_grad, get_loss, define_var, check_with_zyg
 export create_storage_arr, get_loss_2, get_loss_3, StgArr, get_loss_and_grad2, trainer
 
