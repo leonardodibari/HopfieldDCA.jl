@@ -1,8 +1,3 @@
-function logsumexp(a::AbstractArray{<:Real}; dims=1)
-    m = maximum(a; dims=dims)
-    return m + log.(sum(exp.(a .- m); dims=dims))
-end
-
 function get_loss_2(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     plmvar::HopPlmVar, 
@@ -59,7 +54,7 @@ end
 
 function get_loss(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
-    Z::Array{Int,2}, 
+    Z::Array{Int8,2}, 
     _w::Array{Float64, 1}, 
     lambda::Float64)
     
@@ -142,6 +137,31 @@ function get_loss_pagnani(K::Array{Float64,3},
     return sum(loss)+ sreg_k + reg_v
 end
 
+function get_loss_zyg_francesco(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    plmvar::HopPlmVar)
+  
+    Z = plmvar.Z
+    W = plmvar.W
+    lambdaK = plmvar.lambdaK
+    lambdaV = plmvar.lambdaV
+    Wt = W/sum(W)
+    
+
+    @tullio J[i,j,a,b] := K[i,j,h]*V[a,h]*V[b,h]*(j!=i)
+    @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
+    #@tullio en[a, i, m] :=  K[i, j, h] * V[a, h] * V[Z[j, m], h] * (j != i)
+    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] := Wt[m]*(log_z[i, m] - data_en[i,m])
+    
+    #regularization
+    @tullio reg_v := lambdaV*V[a, h]*V[a, h]
+    @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
+    return sum(loss) + sreg_k + reg_v 
+end
+
 function get_loss_zyg(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     plmvar::HopPlmVar)
@@ -152,6 +172,7 @@ function get_loss_zyg(K::Array{Float64,3},
     lambdaV = plmvar.lambdaV
     Wt = W/sum(W)
     
+
     @tullio en[a, i, m] :=  K[i, j, h] * V[a, h] * V[Z[j, m], h] * (j != i)
     @tullio data_en[i, m] := en[Z[i, m], i, m]
     log_z = logsumexp(en)[1,:,:]
