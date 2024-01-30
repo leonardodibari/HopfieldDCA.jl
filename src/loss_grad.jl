@@ -189,7 +189,6 @@ end
 
 
 
-#per H =10 e 1 epoca (N = 53, M = 2785) sono 20 secondi, il tempo in teoria è 2*H*10
 function trainer(plmvar, n_epochs; 
     batch_size = 1000,
     η = 0.005,
