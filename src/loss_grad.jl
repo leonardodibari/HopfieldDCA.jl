@@ -18,6 +18,26 @@ function get_loss_new(K::Array{Float64,3},
     return sum(loss) + sreg_k + reg_v  
 end
 
+function get_loss_sf(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    Z::Array{Int,2}, 
+    _w::Array{Float64, 1}; lambdaK = 0.005, lambdaV = 0.005)
+    
+    
+    KK = softmax_notinplace(K; dims=2)
+    @tullio J[i,j,a,b] := KK[i,j,h]*(j!=i)*V[a,h]*V[b,h]
+    @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
+    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
+    
+    #regularization
+    @tullio reg_v := lambdaV*V[a, h]*V[a, h]
+    @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
+    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
+    return sum(loss) + sreg_k + reg_v  
+end
+
 function get_loss(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     Z::Array{Int,2}, 
@@ -186,10 +206,7 @@ end
 
 
 
-
-
-
-function trainer(plmvar, n_epochs; 
+function trainer_sf(plmvar, n_epochs; 
     batch_size = 1000,
     η = 0.005,
     λ = 0.001,
@@ -216,7 +233,7 @@ function trainer(plmvar, n_epochs;
         loader = DataLoader(D, batchsize = batch_size, shuffle = true)
         for (z,w) in loader
             _w = w/sum(w)
-            g = gradient(x->get_loss(x.K, x.V, z, _w; lambdaK = λ, lambdaV = λ), m)[1]
+            g = gradient(x->get_loss_sf(x.K, x.V, z, _w; lambdaK = λ, lambdaV = λ), m)[1]
             #println(typeof(g))
             #println(size(g))
             update!(t,m,g)
@@ -232,4 +249,78 @@ function trainer(plmvar, n_epochs;
 
     savefile !== nothing && close(file)
     return m
+end
+
+
+
+function trainer(plmvar, n_epochs; 
+    batch_size = 1000,
+    η = 0.005,
+    λ = 0.001,
+    init_m = Nothing, 
+    init_fun = rand, 
+    structfile = "../DataAttentionDCA/data/PF00014/PF00014_struct.dat",
+    savefile::Union{String, Nothing} = nothing)
+    
+    D = (plmvar.Z, plmvar.W)
+    H = plmvar.H
+    N = plmvar.N
+    q = plmvar.q
+
+    
+    l = zeros(n_epochs)
+    p = zeros(n_epochs)
+    p2 = zeros(n_epochs)
+
+
+    m = if init_m !== Nothing
+        init_m
+    else
+        (K = init_fun(N, N, H), V = init_fun(q,H))
+    end
+    t = setup(Adam(η), m)
+
+    savefile !== nothing && (file = open(savefile,"a"))
+    
+    for i in 1:n_epochs
+        loader = DataLoader(D, batchsize = batch_size, shuffle = true)
+        for (z,w) in loader
+            _w = w/sum(w)
+            g = gradient(x->get_loss(x.K, x.V, z, _w; lambdaK = λ, lambdaV = λ), m)[1]
+            #println(typeof(g))
+            #println(size(g))
+            update!(t,m,g)
+        end
+        _w = plmvar.W/sum(plmvar.W)
+        s = score(m.K,m.V)
+        PPV = compute_PPV(s,structfile)
+        
+        l[i] = round(get_loss(m.K, m.V, plmvar.Z, _w; lambdaK = λ, lambdaV = λ), digits = 5)
+        p[i] = round((PPV[N]),digits=3)
+        p2[i] = round((PPV[2*N]),digits=3)
+        
+        li = l[i]
+        pi = p[i]
+        p2i = p2[i]
+        
+        println("Epoch $i loss = $li \t PPV@L = $pi \t PPV@2L = $p2i \t First Error = $(findfirst(x->x!=1, PPV))")
+        savefile !== nothing && println(file, "Epoch $i loss = $li \t PPV@L = $pi \t PPV@2L = $p2i \t First Error = $(findfirst(x->x!=1, PPV))")
+    end
+    
+    
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 4))
+
+    ax1.loglog(l, label="loss")
+    ax1.legend()
+
+    # Plot on the second subplot
+    ax2.loglog(p, label="PPV@L")
+    ax2.loglog(p2, label="PPV@2L")
+    ax2.legend()
+    
+    savefig("log/H$(H)η$(η)λ$(λ)T$(n_epochs).png")
+    
+    n = (l = l, p = p, p2 = p2)
+    savefile !== nothing && close(file)
+    return m, n
 end

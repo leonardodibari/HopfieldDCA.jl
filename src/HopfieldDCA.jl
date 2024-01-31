@@ -22,6 +22,6 @@ include("loss_grad.jl")
 include("dca_score.jl")
 
 export quickread
-export HopPlmVar, get_loss, get_loss_new, get_loss_zyg_francesco, get_loss_zyg, get_loss_pagnani, trainer
+export HopPlmVar, get_loss, get_loss_new, get_loss_zyg_francesco, get_loss_zyg, get_loss_pagnani, trainer, trainer_sf, get_loss_sf
 
 end
