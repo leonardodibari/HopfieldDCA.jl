@@ -1,0 +1,3 @@
+Epoch 1 ltot = 14869.582199999999 	 llike = 1893.7105  	 lreg = 12975.8717 	 PPV@L = 0.302 	 PPV@2L = 0.292 	 First Error = 2
+Epoch 2 ltot = 9191.8811 	 llike = 1530.2301  	 lreg = 7661.651 	 PPV@L = 0.302 	 PPV@2L = 0.292 	 First Error = 2
+Epoch 3 ltot = 5941.565 	 llike = 1197.9694  	 lreg = 4743.5956 	 PPV@L = 0.302 	 PPV@2L = 0.292 	 First Error = 2

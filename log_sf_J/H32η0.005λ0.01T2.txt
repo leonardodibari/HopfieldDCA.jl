@@ -1,2 +1,0 @@
-Epoch 1 loss = 383.36739 	 PPV@L = 0.396 	 PPV@2L = 0.377 	 First Error = 1
-Epoch 2 loss = 314.63486 	 PPV@L = 0.358 	 PPV@2L = 0.387 	 First Error = 1
