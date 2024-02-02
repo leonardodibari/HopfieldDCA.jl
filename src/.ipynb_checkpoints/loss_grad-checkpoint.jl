@@ -1,3 +1,24 @@
+function get_loss_and_grad_zyg2(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    Z::Array{Int,2},
+    _w::Array{Float64,1},
+    tmp; lambda = 0.001)
+
+    
+
+    #useful quantities
+    @tullio tmp.en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
+    tmp.log_z = logsumexp(tmp.en)[1,:,:]
+    @tullio tmp.loss[i] = _w[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])
+
+    #regularization
+    reg_v = lambda*sum(abs2, V)
+    @tullio reg_k[i] := lambda * K[i,j,h] * K[i,j,h] * (j!=i)
+
+    return sum(tmp.loss) + sum(reg_k) + reg_v
+end
+
 function get_loss_J(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     Z::Array{Int,2}, 
@@ -31,9 +52,10 @@ end
 function get_loss_J_tmp(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
     Z::Array{Int,2}, 
-    _w::Array{Float64, 1}, tmp; lambda = 0.001)
+    _w::Array{Float64, 1}, tmp, KK::Array{Float64,3}; lambda = 0.001)
     
-    @tullio tmp.KK[i,j,h] = K[i,j,h]*(j!=i)
+    println("updated")
+    @tullio KK[i,j,h] = K[i,j,h]*(j!=i)
     @tullio tmp.J[i,j,a,b] = tmp.KK[i,j,h]*V[a,h]*V[b,h]
     @tullio tmp.en[a, i, m] = tmp.J[i, j, a, Z[j, m]]
     @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
@@ -41,6 +63,27 @@ function get_loss_J_tmp(K::Array{Float64,3},
     @tullio tmp.loss[i] = _w[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])
     
     return sum(tmp.loss) + lambda * sum(abs2, tmp.J)
+end
+
+function get_loss_J_ext(K::Array{Float64,3}, 
+    V::Array{Float64,2}, 
+    Z::Array{Int,2}, 
+    _w::Array{Float64, 1}, 
+    KK::Array{Float64,3}, 
+    J::Array{Float64,4},
+    en::Array{Float64,3}, 
+    data_en::Array{Float64,2}, 
+    log_z::Array{Float64,2},
+    loss::Array{Float64,1}; lambda = 0.001)
+    
+    KK = K
+    @tullio J[i,j,a,b] = KK[i,j,h]*V[a,h]*V[b,h]
+    @tullio en[a, i, m] = J[i, j, a, Z[j, m]]
+    @tullio data_en[i, m] = en[Z[i, m], i, m]
+    log_z = logsumexp(en)[1,:,:]
+    @tullio loss[i] = _w[m]*(log_z[i, m] - data_en[i,m])
+    
+    return sum(loss) + lambda * sum(abs2, J)
 end
 
 function get_loss_J_tmp_parts(K::Array{Float64,3}, 
@@ -114,16 +157,20 @@ function trainer_J(plmvar, n_epochs;
         loader = DataLoader(D, batchsize = batch_size, shuffle = true)
         for (z,w) in loader
             _w = w/sum(w)
-            g = gradient(x->get_loss_J_tmp(x.K, x.V, z, _w, tmp; lambda = λ), m)[1]
+            println(length(_w))
+            g = gradient(x->get_loss_J(x.K, x.V, z, _w; lambda = λ), m)[1]
             update!(t,m,g)
         end
         _w = plmvar.W/sum(plmvar.W)
         s = score(m.K,m.V)
         PPV = compute_PPV(s,structfile)
         
-        l[i], lr[i] = get_loss_J_parts_tmp(m.K, m.V, plmvar.Z, _w, tmp; lambda = λ)
+        l[i], lr[i] = get_loss_J_parts(m.K, m.V, plmvar.Z, _w; lambda = λ)
         p[i] = round((PPV[N]),digits=3)
         p2[i] = round((PPV[2*N]),digits=3)
+        
+        pi = p[i]
+        p2i = p2[i]
         
         ltoti = round(l[i] + lr[i], digits=3)
         
