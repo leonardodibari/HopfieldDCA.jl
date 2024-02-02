@@ -1,15 +1,14 @@
 function get_loss_and_grad_zyg2(K::Array{Float64,3}, 
     V::Array{Float64,2}, 
-    Z::Array{Int,2},
-    _w::Array{Float64,1},
+    plmvar::HopPlmVar,
     tmp; lambda = 0.001)
-
-    
-
+    println("updat")
+    Z = plmvar.Z
+    _w = plmvar.W ./ sum(plmvar.W)
     #useful quantities
-    @tullio tmp.en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
-    @tullio tmp.data_en[i, m] = tmp.en[Z[i, m], i, m]
-    tmp.log_z = logsumexp(tmp.en)[1,:,:]
+    @tullio en[a, i, m] = K[i, j, h]*(j != i)*V[a, h]*V[Z[j, m], h]
+    @tullio tmp.data_en[i, m] = en[Z[i, m], i, m]
+    tmp.log_z = logsumexp(en)[1,:,:]
     @tullio tmp.loss[i] = _w[m]*(tmp.log_z[i, m] - tmp.data_en[i,m])
 
     #regularization

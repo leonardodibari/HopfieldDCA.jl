@@ -1,4 +1,31 @@
 
+struct HopPlmVar_gen{T1,T2,T3}
+    N::Int
+    q::Int    
+    H::Int
+    Z::Array{Int,2}
+    K::T3
+    V::T2
+    W::T1
+end
+
+function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
+    println("new version")
+    Z, W = quickread(fastafile)
+    W = T.(W)
+    N = size(Z,1); q = maximum(Z);  
+    K = T.(rand(N, N, H)); V = T.(rand(q, H));
+    potts_par = N*(N-1)*q*q/2;
+    att_par = H*N^2  + q*H;
+    ratio = round(att_par / potts_par, digits = 3);
+    println("ratio=$ratio N=$N")
+    T1 = typeof(W)
+    T2 = typeof(V)
+    T3 = typeof(K)
+    println(T1,T2,T3)
+    HopPlmVar_gen{T1,T2,T3}(N, q, H, Z, K, V, W)
+end
+
 
 struct HopPlmVar
     N::Int
