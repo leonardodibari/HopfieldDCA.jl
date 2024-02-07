@@ -101,49 +101,47 @@ function get_loss_zyg(K::Array{Float64,3},
 end
 
 
-
 function get_loss_and_grad(K::Array{Float64,3}, 
-    V::Array{Float64,2}, 
-    plmvar::HopPlmVar)
+    V::Array{Float64,2},
+    Z::Array{Int,2}, 
+    _w::Array{Float64, 1},
+    delta_j; lambda = 0.001)
    
 
-    Z = plmvar.Z
-    W = plmvar.W
-    lambdaK = plmvar.lambdaK
-    lambdaV = plmvar.lambdaV
-    Wt = W/sum(W)
+    @tullio KK[i,j,h] := K[i,j,h]*(j!=i)
 
-    println("useful quantities")
-    #useful quantities
-    @time @tullio v_prod[a, j, m, h] := V[a, h]*V[Z[j, m], h]
-    @time @tullio en[a, i, m] := K[i, j, h]*(j != i)*v_prod[a, j, m, h]
-    @time @tullio data_en[i, m] := en[Z[i, m], i, m]
-    @time log_z = logsumexp(en)[1,:,:]
-    @time @tullio loss[i] := Wt[m]*(log_z[i, m] - data_en[i,m])
     
-    @time @tullio reg_v := lambdaV*V[a, h]*V[a, h]
-    @time @tullio sreg_k := lambdaK * K[i,j,h] * K[i,j,h] * (j!=i)
-    #println("loss is $(sum(loss)) + $(sreg_k) + $reg_v and sumn=$(sum(en)) and sumn=$(sum(data_en))")
-    println("grad k")
-    @time @tullio prob[a,i,m] := exp(en[a,i,m] - log_z[i,m]) 
-    @time @tullio grad_k1[i, j, h] := Wt[m] * prob[a, i, m]*v_prod[a, j, m, h] * (j!=i) 
-    @time @tullio grad_k2[i, j, h] := Wt[m] * v_prod[Z[i, m], j, m, h] * (j!=i) 
-    @time grad_K = grad_k1 .- grad_k2
+    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
+    @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
+    @tullio v_prod[a, j, m, h] := V[a, h]*V[Z[j, m], h]
+    log_z = logsumexp(en)[1,:,:]
+    
+    @tullio prob[a,i,m] := exp(en[a,i,m] - log_z[i,m]) 
+    @tullio grad_k11[i, j, m, h] := prob[a, i, m]*v_prod[a, j, m, h] * (j!=i) 
+    @tullio grad_k1[i, j, h] := _w[m] * grad_k11[i, j, m, h]
+    @tullio grad_k2[i, j, h] := _w[m] * v_prod[Z[i, m], j, m, h] * (j!=i) 
+    grad_K = grad_k1 .- grad_k2
 
-    println("grad v")
-    @time @tullio gg_A[l,m,h]= prob[a, i, m]*V[Z[j, m], h]* K[i, j, h]*(j != i)
-    @time @tullio gg_B[l,m,h]= prob[a, i, m]*V[Z[j, m], h]* V[a,h]*plmvar.delta_j[l, j, m]*K[i, j, h]*(j != i)
+    @tullio tot_grad_K[i, j, h] := grad_K[i, j, h] + 2*lambda*J[i, j, a, b]*V[a, h]*V[b, h] 
     
-    @time @tullio grad_v1[l, m, h] := prob[a, i, m] * (V[Z[j, m], h]*plmvar.delta_la[l,a]+V[a,h]*plmvar.delta_j[l, j, m]) * K[i, j, h]*(j != i)
-    @time @tullio grad_v2[l, m, h] := K[i, j, h]*(j != i)*(V[Z[j, m], h]*plmvar.delta_i[l, i, m] + V[Z[i, m], h]*plmvar.delta_j[l, j, m])
-    @time @tullio grad_V[l, h] := Wt[m]*(grad_v1[l, m, h] - grad_v2[l, m, h])
-    
-    println("reg grad")
-    @time @tullio tot_grad_K[i,j,h] := grad_K[i, j, h] + 2 * lambdaK * K[i,j,h] * (j!=i)
-    @time @tullio tot_grad_V[l, h] := grad_V[l, h] + 2 * lambdaV * V[l, h]
-    println("updated")
+    @tullio gg_A[l, m, h] := prob[l, i, m]*V[Z[j, m], h]*KK[i, j, h]
+    @tullio gg_BB[i, m, h] := prob[a, i, m]*V[a,h]
+    @tullio gg_B2[i,l,m,h] := gg_BB[i, m, h]*delta_j[l, j, m]*KK[i, j, h]
+    @tullio gg_B[l,m,h] := gg_B2[i,l,m,h]
+    @tullio grad_v1[l, m, h] := gg_A[l, m, h] + gg_B[l, m, h]
 
-    return  tot_grad_K, tot_grad_V, sum(loss) + sreg_k + reg_v 
+    @tullio gg_C[i,l,m,h] := KK[i, j, h]*(V[Z[i, m], h]*delta_j[l, j, m]+V[Z[j, m], h]*delta_j[l, i, m])
+    @tullio grad_v2[l, m, h] := gg_C[i,l,m,h]    
+    @tullio grad_V[l, h] := _w[m]*(grad_v1[l, m, h] - grad_v2[l, m, h])
+    
+    @tullio reg_v01[i,j,l,h] := J[i,j,a,l]*V[a,h]
+    @tullio reg_v02[i,j,l,h] := J[i,j,l,b]*V[b,h]
+    @tullio reg_v1[i,l,h] := K[i, j, h]*reg_v01[i,j,l,h]
+    @tullio reg_v2[i,l,h] := K[i, j, h]*reg_v02[i,j,l,h]
+    @tullio reg_v[l, h] := reg_v1[i, l, h] + reg_v2[i, l, h]
+    
+    @tullio tot_grad_V[l, h] := grad_V[l, h] + 2*lambda*reg_v[l,h]
+
+    return  tot_grad_K, tot_grad_V
 end
-
 """
