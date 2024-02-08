@@ -48,7 +48,7 @@ end
 function get_anal_grad(K::Array{T,3}, 
     V::Array{T,2}, 
     Z::Array{Int,2}, 
-    _w::Array{T, 1}, tmp::Stg, delta_j; lambda = 0.001) where {T<:AbstractFloat}
+    _w::Array{T, 1}, tmp::Stg; lambda = 0.001) where {T<:AbstractFloat}
    
     @tullio tmp.KK[i,j,h] = K[i,j,h]*(j!=i)
 
@@ -67,11 +67,11 @@ function get_anal_grad(K::Array{T,3},
     
     @tullio tmp.gg_A[l, m, h] = tmp.prob[l, i, m]*V[Z[j, m], h]*tmp.KK[i, j, h]
     @tullio tmp.gg_BB[i, m, h] = tmp.prob[a, i, m]*V[a,h]
-    @tullio tmp.gg_B2[i,l,m,h] = tmp.gg_BB[i, m, h]*delta_j[l, j, m]*tmp.KK[i, j, h]
+    @tullio tmp.gg_B2[i,l,m,h] = tmp.gg_BB[i, m, h]*(l==Z[j, m])*tmp.KK[i, j, h]
     @tullio tmp.gg_B[l,m,h] = tmp.gg_B2[i,l,m,h]
     @tullio tmp.grad_v1[l, m, h] = tmp.gg_A[l, m, h] + tmp.gg_B[l, m, h]
 
-    @tullio tmp.gg_C[i,l,m,h] = tmp.KK[i, j, h]*(V[Z[i, m], h]*delta_j[l, j, m]+V[Z[j, m], h]*delta_j[l, i, m])
+    @tullio tmp.gg_C[i,l,m,h] = tmp.KK[i, j, h]*(V[Z[i, m], h]*(l== Z[j, m])+V[Z[j, m], h]*(l==Z[i, m]))
     @tullio tmp.grad_v2[l, m, h] = tmp.gg_C[i,l,m,h]    
     @tullio tmp.grad_V[l, h] = _w[m]*(tmp.grad_v1[l, m, h] - tmp.grad_v2[l, m, h])
     
@@ -194,10 +194,7 @@ function trainer(plmvar, n_epochs;
     p2 = zeros(n_epochs)
 
     MM = size(plmvar.Z,2) % batch_size
-
-    delta_j_small = zeros(q,N,MM)
-    delta_j = zeros(q,N,batch_size)
-    println("updated")
+  
     T = eltype(plmvar.K)
 
     tmp = Stg(plmvar; m = batch_size)
@@ -219,12 +216,10 @@ function trainer(plmvar, n_epochs;
             
             _w = w/sum(w)
             if length(_w) != batch_size
-                @tullio delta_j_small[a, j, m] = a == z[j, m] (a in 1:q)
-                g = get_anal_grad(m.K, m.V, z, _w, tmp1, delta_j_small; lambda = λ)
+                g = get_anal_grad(m.K, m.V, z, _w, tmp1; lambda = λ)
                 update!(t,m,g)
             else
-                @tullio delta_j[a, j, m] = a == z[j, m] (a in 1:q)
-                g = get_anal_grad(m.K, m.V, z, _w, tmp, delta_j; lambda = λ)
+                g = get_anal_grad(m.K, m.V, z, _w, tmp; lambda = λ)
                 update!(t,m,g)
             end
         end
@@ -233,7 +228,7 @@ function trainer(plmvar, n_epochs;
         PPV = compute_PPV(s,structfile)
         
         l[i], lr[i] = get_loss_parts(m.K, m.V, plmvar.Z, _w, tmp_tot; lambda = λ)
-        #l[i], lr[i] = get_loss_J_parts(m.K, m.V, plmvar.Z, _w; lambda = λ)
+       
         p[i] = round((PPV[N]),digits=3)
         p2[i] = round((PPV[2*N]),digits=3)
                
@@ -244,7 +239,7 @@ function trainer(plmvar, n_epochs;
     end
     
     if fig_save
-        println("plotting figure")
+        
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 4))
     
         # Plot on the first subplot
