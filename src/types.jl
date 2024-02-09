@@ -26,7 +26,7 @@ function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
 end
 
 
-mutable struct Stg{T1, T2, T3, T4}
+struct Stg{T1, T2, T3, T4}
     KK::T3
     J::T4
     en::T3
@@ -56,11 +56,11 @@ mutable struct Stg{T1, T2, T3, T4}
     tot_grad_V::T2
 end
 
-function Stg(plmvar; m = 0)
+function Stg(plmvar::HopPlmVar_gen; m = 0)
     Z = plmvar.Z
-    N = size(Z)[1]
+    N = size(Z,1)
     if m == 0
-        M = size(Z)[2]
+        M = size(Z,2)
     else
         M = m
     end

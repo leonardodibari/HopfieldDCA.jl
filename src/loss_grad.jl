@@ -50,40 +50,40 @@ function get_anal_grad(K::Array{T,3},
     Z::Array{Int,2}, 
     _w::Array{T, 1}, tmp::Stg; lambda = 0.001) where {T<:AbstractFloat}
    
-    @tullio tmp.KK[i,j,h] = K[i,j,h]*(j!=i)
+    @tullio grad=false tmp.KK[i,j,h] = K[i,j,h]*(j!=i)
 
-    @tullio tmp.J[i,j,a,b] = tmp.KK[i,j,h]*V[a,h]*V[b,h]
-    @tullio tmp.en[a, i, m] = tmp.J[i, j, a, Z[j, m]]
-    @tullio tmp.v_prod[a, j, m, h] = V[a, h]*V[Z[j, m], h]
-    tmp.log_z = logsumexp(tmp.en)[1,:,:]
+    @tullio grad=false tmp.J[i,j,a,b] = tmp.KK[i,j,h]*V[a,h]*V[b,h]
+    @tullio grad=false tmp.en[a, i, m] = tmp.J[i, j, a, Z[j, m]]
+    @tullio grad=false  tmp.v_prod[a, j, m, h] = V[a, h]*V[Z[j, m], h]
+    tmp.log_z .= logsumexp(tmp.en)[1,:,:]
 
-    @tullio tmp.prob[a,i,m] = exp(tmp.en[a,i,m] - tmp.log_z[i,m]) 
-    @tullio tmp.grad_k11[i, j, m, h] = tmp.prob[a, i, m]*tmp.v_prod[a, j, m, h] * (j!=i) 
-    @tullio tmp.grad_k1[i, j, h] = _w[m] * tmp.grad_k11[i, j, m, h]
-    @tullio tmp.grad_k2[i, j, h] = _w[m] * tmp.v_prod[Z[i, m], j, m, h] * (j!=i) 
-    tmp.grad_k = tmp.grad_k1 .- tmp.grad_k2
+    @tullio grad=false  tmp.prob[a,i,m] = exp(tmp.en[a,i,m] - tmp.log_z[i,m]) 
+    @tullio grad=false  tmp.grad_k11[i, j, m, h] = tmp.prob[a, i, m]*tmp.v_prod[a, j, m, h] * (j!=i) 
+    @tullio grad=false  tmp.grad_k1[i, j, h] = _w[m] * tmp.grad_k11[i, j, m, h]
+    @tullio grad=false  tmp.grad_k2[i, j, h] = _w[m] * tmp.v_prod[Z[i, m], j, m, h] * (j!=i) 
+    tmp.grad_k .= tmp.grad_k1 .- tmp.grad_k2
 
-    @tullio tmp.tot_grad_K[i, j, h] = tmp.grad_k[i, j, h] + 2*lambda*tmp.J[i, j, a, b]*V[a, h]*V[b, h] 
+    @tullio grad=false  tmp.tot_grad_K[i, j, h] = tmp.grad_k[i, j, h] + 2*lambda*tmp.J[i, j, a, b]*V[a, h]*V[b, h] 
     
-    @tullio tmp.gg_A[l, m, h] = tmp.prob[l, i, m]*V[Z[j, m], h]*tmp.KK[i, j, h]
-    @tullio tmp.gg_BB[i, m, h] = tmp.prob[a, i, m]*V[a,h]
-    @tullio tmp.gg_B2[i,l,m,h] = tmp.gg_BB[i, m, h]*(l==Z[j, m])*tmp.KK[i, j, h]
-    @tullio tmp.gg_B[l,m,h] = tmp.gg_B2[i,l,m,h]
-    @tullio tmp.grad_v1[l, m, h] = tmp.gg_A[l, m, h] + tmp.gg_B[l, m, h]
+    @tullio grad=false  tmp.gg_A[l, m, h] = tmp.prob[l, i, m]*V[Z[j, m], h]*tmp.KK[i, j, h]
+    @tullio grad=false  tmp.gg_BB[i, m, h] = tmp.prob[a, i, m]*V[a,h]
+    @tullio grad=false  tmp.gg_B2[i,l,m,h] = tmp.gg_BB[i, m, h]*(l==Z[j, m])*tmp.KK[i, j, h]
+    @tullio grad=false  tmp.gg_B[l,m,h] = tmp.gg_B2[i,l,m,h]
+    @tullio grad=false  tmp.grad_v1[l, m, h] = tmp.gg_A[l, m, h] + tmp.gg_B[l, m, h]
 
-    @tullio tmp.gg_C[i,l,m,h] = tmp.KK[i, j, h]*(V[Z[i, m], h]*(l== Z[j, m])+V[Z[j, m], h]*(l==Z[i, m]))
-    @tullio tmp.grad_v2[l, m, h] = tmp.gg_C[i,l,m,h]    
-    @tullio tmp.grad_V[l, h] = _w[m]*(tmp.grad_v1[l, m, h] - tmp.grad_v2[l, m, h])
+    @tullio grad=false  tmp.gg_C[i,l,m,h] = tmp.KK[i, j, h]*(V[Z[i, m], h]*(l== Z[j, m])+V[Z[j, m], h]*(l==Z[i, m]))
+    @tullio grad=false  tmp.grad_v2[l, m, h] = tmp.gg_C[i,l,m,h]    
+    @tullio grad=false  tmp.grad_V[l, h] = _w[m]*(tmp.grad_v1[l, m, h] - tmp.grad_v2[l, m, h])
     
-    @tullio tmp.reg_v01[i,j,l,h] = tmp.J[i,j,a,l]*V[a,h]
-    @tullio tmp.reg_v02[i,j,l,h] = tmp.J[i,j,l,b]*V[b,h]
-    @tullio tmp.reg_v1[i,l,h] = K[i, j, h]*tmp.reg_v01[i,j,l,h]
-    @tullio tmp.reg_v2[i,l,h] = K[i, j, h]*tmp.reg_v02[i,j,l,h]
-    @tullio tmp.reg_v[l, h] = tmp.reg_v1[i, l, h] + tmp.reg_v2[i, l, h]
+    @tullio grad=false  tmp.reg_v01[i,j,l,h] = tmp.J[i,j,a,l]*V[a,h]
+    @tullio grad=false  tmp.reg_v02[i,j,l,h] = tmp.J[i,j,l,b]*V[b,h]
+    @tullio grad=false  tmp.reg_v1[i,l,h] = K[i, j, h]*tmp.reg_v01[i,j,l,h]
+    @tullio grad=false  tmp.reg_v2[i,l,h] = K[i, j, h]*tmp.reg_v02[i,j,l,h]
+    @tullio grad=false  tmp.reg_v[l, h] = tmp.reg_v1[i, l, h] + tmp.reg_v2[i, l, h]
     
-    @tullio tmp.tot_grad_V[l, h] = tmp.grad_V[l, h] + 2*lambda*tmp.reg_v[l,h]
+    @tullio grad=false  tmp.tot_grad_V[l, h] = tmp.grad_V[l, h] + 2*lambda*tmp.reg_v[l,h]
 
-    return  (K=tmp.tot_grad_K, V=tmp.tot_grad_V)
+    return  (dK=tmp.tot_grad_K, dV=tmp.tot_grad_V)
 end
 
 
