@@ -10,7 +10,7 @@ struct HopPlmVar_gen{T1,T2,T3}
 end
 
 function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
-    println("new version")
+    println("final version")
     Z, W = quickread(fastafile)
     W = T.(W)
     N = size(Z,1); q = maximum(Z);  
@@ -22,7 +22,6 @@ function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
     T1 = typeof(W)
     T2 = typeof(V)
     T3 = typeof(K)
-    println(T1,T2,T3)
     HopPlmVar_gen{T1,T2,T3}(N, q, H, Z, K, V, W)
 end
 
@@ -108,3 +107,6 @@ function Stg(plmvar; m = 0)
     tot_grad_V)
 
 end
+
+
+
