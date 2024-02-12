@@ -45,6 +45,69 @@ function get_loss_parts(K::Array{T,3},
     return round(sum(tmp.loss), digits = 3), round(lambda * sum(abs2, tmp.J), digits = 3)
 end
 
+function single_site!(K::Array{T,3}, 
+    V::Array{T,2}, 
+    Z::Array{Int,2}, 
+    _w::Array{T,1}, 
+    tmp::SmallStg, 
+    m::Int) where {T<:AbstractFloat}
+
+    @tullio grad=false tmp.en[a, i] = tmp.J[i, j, a, Z[j, m]]
+    @tullio grad=false tmp.v_prod[a, j, h] = V[a, h]*V[Z[j, m], h]
+    tmp.log_z .= logsumexp(tmp.en)[1,:]
+
+    @tullio grad=false tmp.prob[a,i] = exp(tmp.en[a,i] - tmp.log_z[i]) 
+    @tullio grad=false tmp.grad_k11[i, j, h] = tmp.prob[a, i]*tmp.v_prod[a, j, h] * (j!=i) 
+    @tullio grad=false tmp.grad_k1[i, j, h] = _w[m] * tmp.grad_k11[i, j, h]
+    @tullio grad=false tmp.grad_k2[i, j, h] = _w[m] * tmp.v_prod[Z[i, m], j, h] * (j!=i) 
+    @tullio grad=false tmp.grad_k[i, j, h] = tmp.grad_k[i, j, h] + tmp.grad_k1[i, j, h] - tmp.grad_k2[i, j, h]
+
+    @tullio grad=false tmp.gg_A[l, h] = tmp.prob[l, i]*V[Z[j, m], h]*tmp.KK[i, j, h]
+    @tullio grad=false tmp.gg_BB[i, h] = tmp.prob[a, i]*V[a,h]
+    @tullio grad=false tmp.gg_B2[i, l, h] = tmp.gg_BB[i, h]*(l==Z[j, m])*tmp.KK[i, j, h]
+    @tullio grad=false tmp.gg_B[l, h] = tmp.gg_B2[i, l, h]
+    @tullio grad=false tmp.grad_v1[l, h] = tmp.gg_A[l, h] + tmp.gg_B[l, h]
+
+    @tullio grad=false tmp.gg_C[i,l,h] = tmp.KK[i, j, h]*(V[Z[i, m], h]*(l== Z[j, m])+ V[Z[j, m], h]*(l==Z[i, m]))
+    @tullio grad=false tmp.grad_v2[l, h] = tmp.gg_C[i,l,h]    
+    @tullio grad=false tmp.grad_V[l, h] = tmp.grad_V[l, h] + _w[m]*(tmp.grad_v1[l, h] - tmp.grad_v2[l, h])
+
+end
+
+
+function get_new_grad(K::Array{T,3}, 
+    V::Array{T,2}, 
+    Z::Array{Int,2}, 
+    _w::Array{T,1}, 
+    tmp::SmallStg,
+    n_m::Int; 
+    lambda = 0.001) where {T<:AbstractFloat}
+   
+    println("new version")
+    
+    @tullio grad=false tmp.KK[i,j,h] = K[i,j,h]*(j!=i)
+    @tullio grad=false tmp.J[i,j,a,b] = tmp.KK[i,j,h]*V[a,h]*V[b,h]
+    
+    fill!(tmp.grad_k, 0)
+    fill!(tmp.grad_V, 0)
+
+    @fastmath @inbounds for m in 1:n_m #length(_w)
+        single_site!(K, V, Z, _w, tmp, m)         
+    end
+
+    @tullio grad=false  tmp.tot_grad_K[i, j, h] = tmp.grad_k[i, j, h] + 2*lambda*tmp.J[i, j, a, b]*V[a, h]*V[b, h] 
+    
+    @tullio grad=false  tmp.reg_v01[i,j,l,h] = tmp.J[i,j,a,l]*V[a,h]
+    @tullio grad=false  tmp.reg_v02[i,j,l,h] = tmp.J[i,j,l,b]*V[b,h]
+    @tullio grad=false  tmp.reg_v1[i,l,h] = K[i, j, h]*tmp.reg_v01[i,j,l,h]
+    @tullio grad=false  tmp.reg_v2[i,l,h] = K[i, j, h]*tmp.reg_v02[i,j,l,h]
+    @tullio grad=false  tmp.reg_v[l, h] = tmp.reg_v1[i, l, h] + tmp.reg_v2[i, l, h]
+    
+    @tullio grad=false  tmp.tot_grad_V[l, h] = tmp.grad_V[l, h] + 2*lambda*tmp.reg_v[l,h]
+    
+    return  (dK=tmp.tot_grad_K, dV=tmp.tot_grad_V)
+end
+
 function get_anal_grad(K::Array{T,3}, 
     V::Array{T,2}, 
     Z::Array{Int,2}, 
