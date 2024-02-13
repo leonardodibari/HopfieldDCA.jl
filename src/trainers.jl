@@ -33,7 +33,7 @@ function trainer_J(plmvar, n_epochs;
     t = setup(Adam(η), m)
 
     savefile !== nothing && (file = open(savef,"a"))
-    println(savef)
+     savefile !== nothing && (println(savef))
         
     for i in 1:n_epochs
         loader = DataLoader(D, batchsize = batch_size, shuffle = true)
@@ -76,12 +76,12 @@ function trainer_J(plmvar, n_epochs;
         ax2.loglog(p, label="PPV@L")
         ax2.loglog(p2, label="PPV@2L")
         ax2.legend()
-        
+        println(joinpath(folder,"H$(H)η$(η)λ$(λ)T$(n_epochs).png"))
         savefig(joinpath(folder,"H$(H)η$(η)λ$(λ)T$(n_epochs).png"))  
     end
     
     if par_save
-        @save joinpath(folder,"H$(H)η$(η)λ$(λ)T$(n_epochs).jld2") m 
+        @save joinpath(folder,"parsH$(H)η$(η)λ$(λ)T$(n_epochs).jld2") m 
     end
     n = (ltot = l.+lr, p = p, p2 = p2)
     savefile !== nothing && close(file)
@@ -166,12 +166,12 @@ function trainer_fullJ(plmvar, n_epochs;
         ax2.loglog(p, label="PPV@L")
         ax2.loglog(p2, label="PPV@2L")
         ax2.legend()
-        
+        println(joinpath(folder,"full_H$(H)η$(η)λ$(λ)T$(n_epochs).png"))
         savefig(joinpath(folder,"full_H$(H)η$(η)λ$(λ)T$(n_epochs).png"))  
     end
     
     if par_save
-        @save joinpath(folder,"full_H$(H)η$(η)λ$(λ)T$(n_epochs).jld2") m 
+        @save joinpath(folder,"parsfull_H$(H)η$(η)λ$(λ)T$(n_epochs).jld2") m 
     end
     
     n = (ltot = l.+lr, p = p, p2 = p2)
