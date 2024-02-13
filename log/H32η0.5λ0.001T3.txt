@@ -1,3 +1,0 @@
-Epoch 1 ltot = 4592.039 	 PPV@L = 0.491 	 PPV@2L = 0.415 	 1st Err = 2
-Epoch 2 ltot = 1816.258 	 PPV@L = 0.434 	 PPV@2L = 0.425 	 1st Err = 3
-Epoch 3 ltot = 399.532 	 PPV@L = 0.604 	 PPV@2L = 0.5 	 1st Err = 5

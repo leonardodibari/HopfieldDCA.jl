@@ -13,7 +13,9 @@ import Flux.Optimise: update!
 import Flux.Optimisers: setup
 import DCAUtils: read_fasta_alignment, remove_duplicate_sequences, compute_weights, add_pseudocount, compute_weighted_frequencies
 using LoopVectorization
+using LogExpFunctions
 using Tullio
+using JLD2
 
 include("types.jl")
 include("utils.jl")

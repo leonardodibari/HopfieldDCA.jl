@@ -7,7 +7,8 @@ function get_loss_J(K::Array{T,3},
     @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
-    log_z = logsumexp(en)[1,:,:]
+    #log_z = logsumexp(en)[1,:,:]
+    log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
   
     return sum(loss) + lambda * sum(abs2, J)
@@ -22,7 +23,7 @@ function get_loss_J_parts(K::Array{T,3},
     @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
-    log_z = logsumexp(en)[1,:,:]
+    log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
     return round(sum(loss), digits = 3), round(lambda * sum(abs2, J), digits = 3) 
@@ -37,7 +38,8 @@ function get_loss_fullJ(K::Array{T,2},
     @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
-    log_z = logsumexp(en)[1,:,:]
+    #log_z = logsumexp(en)[1,:,:]
+    log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
   
     return sum(loss) + lambda * sum(abs2, J)
@@ -52,7 +54,8 @@ function get_loss_fullJ_parts(K::Array{T,2},
     @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[i, j, a, Z[j, m]]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
-    log_z = logsumexp(en)[1,:,:]
+    #log_z = logsumexp(en)[1,:,:]
+    log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
     return round(sum(loss), digits = 3), round(lambda * sum(abs2, J), digits = 3) 

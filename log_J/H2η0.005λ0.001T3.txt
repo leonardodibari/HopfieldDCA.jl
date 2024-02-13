@@ -1,9 +1,0 @@
-Epoch 1 ltot = 528.094 	 llike = 380.38  	 lreg = 147.714 	 PPV@L = 0.396 	 PPV@2L = 0.406 	 1st Err = 1
-Epoch 2 ltot = 410.409 	 llike = 300.678  	 lreg = 109.731 	 PPV@L = 0.377 	 PPV@2L = 0.406 	 1st Err = 1
-Epoch 3 ltot = 327.059 	 llike = 242.507  	 lreg = 84.552 	 PPV@L = 0.377 	 PPV@2L = 0.396 	 1st Err = 2
-Epoch 1 ltot = 474.89 	 llike = 433.865  	 lreg = 41.025 	 PPV@L = 0.302 	 PPV@2L = 0.349 	 1st Err = 2
-Epoch 2 ltot = 377.628 	 llike = 353.159  	 lreg = 24.469 	 PPV@L = 0.321 	 PPV@2L = 0.358 	 1st Err = 2
-Epoch 3 ltot = 303.849 	 llike = 289.187  	 lreg = 14.662 	 PPV@L = 0.34 	 PPV@2L = 0.368 	 1st Err = 2
-Epoch 1 ltot = 556.547 llike = 439.468 lreg = 117.079 	 PPV@L = 0.34 	 PPV@2L = 0.434 	 1st Err = 2
-Epoch 2 ltot = 444.349 llike = 358.382 lreg = 85.967 	 PPV@L = 0.283 	 PPV@2L = 0.425 	 1st Err = 2
-Epoch 3 ltot = 357.832 llike = 290.914 lreg = 66.918 	 PPV@L = 0.302 	 PPV@2L = 0.415 	 1st Err = 2
