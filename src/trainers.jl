@@ -16,7 +16,7 @@ function trainer_J(plmvar, n_epochs;
     N = plmvar.N
     q = plmvar.q
 
-    savefile !== nothing && (savef = joinpath(savefile, "H$(H)η$(η)λ$(λ)T$(n_epochs).png"))
+    savefile !== nothing && (savef = joinpath(savefile, "logH$(H)η$(η)λ$(λ)T$(n_epochs).txt"))
     
     l = zeros(n_epochs)
     lr = zeros(n_epochs)
