@@ -20,8 +20,7 @@ function HopPlmVar_full(H, fastafile; T::DataType=Float32)
     println("ratio=$ratio N=$N")
     T1 = typeof(W)
     T2 = typeof(V)
-    T3 = typeof(K)
-    HopPlmVar_gen{T1,T2}(N, q, H, Z, K, V, W)
+    HopPlmVar_full{T1,T2}(N, q, H, Z, K, V, W)
 end
 
 
