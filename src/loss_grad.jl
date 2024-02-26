@@ -26,15 +26,8 @@ function get_loss_J_orthog(K::Array{T,3},
     #log_z = logsumexp(en)[1,:,:]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
-    
-    TT = eltype(K)
-    n_V = V ./ sqrt.(sum(abs2,V, dims=1))
-    ort_loss = TT(0.0)
-    for h in 1:size(V,2)
-        for k in h+1:size(V,2)
-            ort_loss += abs(n_V[:,h]'*n_V[:,k])
-        end
-    end
+  
+    ort_loss = orthotullio(V)
     
     return sum(loss) + lambda * sum(abs2, J) + ort * ort_loss
 end
@@ -69,14 +62,7 @@ function get_loss_J_orthog_parts(K::Array{T,3},
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
-    n_V = V ./ sqrt.(sum(abs2,V, dims=1))
-    
-    ort_loss = 0
-    for h in 1:size(V,2)
-        for k in h+1:size(V,2)
-            ort_loss += abs(n_V[:,h]'*n_V[:,k])
-        end
-    end
+    ort_loss = orthotullio(V)
     
     return round(sum(loss), digits = 3), round(lambda * sum(abs2, J) + ort * ort_loss, digits = 3)
 end

@@ -6,6 +6,12 @@ function norma_col(inp)
     return x
 end
 
+function orthotullio(V)
+    n_V = V ./ sqrt.(sum(abs2, V, dims=1))
+    @tullio cosin[h1,h2] := n_V[a, h1] * n_V[a, h2]
+    return (sum(abs,cosin)-size(V,2))/2
+end
+
 function logsumexp(a::AbstractArray{<:Real}; dims=1)
     m = maximum(a; dims=dims)
     return m + log.(sum(exp.(a .- m); dims=dims))

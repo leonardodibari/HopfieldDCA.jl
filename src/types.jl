@@ -1,4 +1,4 @@
-struct HopPlmVar_full{T1,T2}
+struct HopPlmVar_full{T1,T2} 
     N::Int
     q::Int    
     H::Int
