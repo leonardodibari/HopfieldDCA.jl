@@ -8,6 +8,70 @@ function compute_residue_pair_dist(filedist::String)
 
 end
 
+
+function sel_good_res(K, V, filestruct; mindist::Int=6, ppv_cutoff=0.8)
+    s = score(K, V, min_separation = mindist)
+    dist = compute_residue_pair_dist(filestruct)
+    good_ref_score = filter(x->x[4]>ppv_cutoff, compute_referencescore(s, dist, mindist = mindist))
+    return map(x->(x[1], x[2]), good_ref_score)
+end
+
+function sel_good_res(score,filestruct; mindist::Int=6, ppv_cutoff=0.8)
+    dist = compute_residue_pair_dist(filestruct)
+    good_ref_score = filter(x->x[4]>ppv_cutoff, compute_referencescore(score, dist, mindist = mindist))
+    return map(x->(x[1], x[2]), good_ref_score)
+end
+
+
+function get_filt_mat_sf(K,V, filestruct; mindist::Int=6, ppv_cutoff=0.8)
+    
+    gr = sel_good_res(K, V, filestruct, mindist = mindist, ppv_cutoff = ppv_cutoff)
+    N = size(K, 1)
+    H = size(K, 3)
+    KK = zeros(N,N,H)
+    for n in 1:size(gr,1)
+        for h in 1:21
+            KK[gr[n][1], gr[n][2], h] = K[gr[n][1], gr[n][2], h]
+        end
+    end
+    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[a,b]
+    J0 = mean(mean(J, dims = 3), dims=4)  
+    JJ_zs = J .- mean(J, dims = 3) .- mean(J, dims = 4) .+ J0 
+    @tullio e[a,b] := JJ_zs[i,j,a,b]*(j!=i)
+    return (e.+e')./2
+end
+
+function get_filt_mat_mf(K,V, filestructs; mindist::Int=6, ppv_cutoff=0.8)
+    Nf = length(K)
+    NN = [size(K[f], 1) for f in 1:Nf]
+    println(NN)
+    N = maximum([size(K[f], 1) for f in 1:Nf])
+    H = size(K[1], 3)
+    println("N = $(N), H = $(H)")
+    KK = zeros(N,N,H)
+    counts = zeros(N, N, H)
+    for f in 1:Nf
+        gr = sel_good_res(K[f], V, filestructs[f], mindist = mindist, ppv_cutoff = ppv_cutoff) 
+        println(size(gr))
+        for n in 1:size(gr,1)
+            for h in 1:H
+                KK[gr[n][1], gr[n][2], h] += K[f][gr[n][1], gr[n][2], h]
+                counts[gr[n][1], gr[n][2], h] += 1
+            end
+        end
+    end
+    
+    KK[KK.!=0] ./= counts[KK.!=0]
+    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[a,b]
+    J0 = mean(mean(J, dims = 3), dims=4)  
+    JJ_zs = J .- mean(J, dims = 3) .- mean(J, dims = 4) .+ J0 
+    @tullio e[a,b] := J[i,j,a,b]#*(j!=i)
+    return (e .+ e')./2
+end
+    
+
+    
+
 function compute_referencescore(score,dist::Dict; mindist::Int=6, cutoff::Number=8.0)
     nc2 = length(score)
     #nc2 == size(d,1) || throw(DimensionMismatch("incompatible length $nc2 $(size(d,1))"))
