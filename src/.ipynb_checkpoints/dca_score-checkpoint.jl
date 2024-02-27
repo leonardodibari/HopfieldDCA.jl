@@ -13,18 +13,20 @@ function sel_good_res(K, V, filestruct; mindist::Int=6, ppv_cutoff=0.8)
     s = score(K, V, min_separation = mindist)
     dist = compute_residue_pair_dist(filestruct)
     good_ref_score = filter(x->x[4]>ppv_cutoff, compute_referencescore(s, dist, mindist = mindist))
-    return map(x->(x[1], x[2]), good_ref_score)
+    only_contacts = filter(x->x[5] == 1, good_ref_score)
+    return map(x->(x[1], x[2]), only_contacts)
 end
 
 function sel_good_res(score,filestruct; mindist::Int=6, ppv_cutoff=0.8)
     dist = compute_residue_pair_dist(filestruct)
     good_ref_score = filter(x->x[4]>ppv_cutoff, compute_referencescore(score, dist, mindist = mindist))
-    return map(x->(x[1], x[2]), good_ref_score)
+    only_contacts = filter(x->x[5] == 1, good_ref_score)
+    return map(x->(x[1], x[2]), only_contacts)
 end
 
 
-function get_filt_mat_sf(K,V, filestruct; mindist::Int=6, ppv_cutoff=0.8)
-    
+function get_filt_mat_sf(K,Vn, filestruct; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
+    V = Vn[order_Martin,:]
     gr = sel_good_res(K, V, filestruct, mindist = mindist, ppv_cutoff = ppv_cutoff)
     N = size(K, 1)
     H = size(K, 3)
@@ -34,20 +36,19 @@ function get_filt_mat_sf(K,V, filestruct; mindist::Int=6, ppv_cutoff=0.8)
             KK[gr[n][1], gr[n][2], h] = K[gr[n][1], gr[n][2], h]
         end
     end
-    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[a,b]
+    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
     J0 = mean(mean(J, dims = 3), dims=4)  
     JJ_zs = J .- mean(J, dims = 3) .- mean(J, dims = 4) .+ J0 
     @tullio e[a,b] := JJ_zs[i,j,a,b]*(j!=i)
     return (e.+e')./2
 end
 
-function get_filt_mat_mf(K,V, filestructs; mindist::Int=6, ppv_cutoff=0.8)
+function get_filt_mat_mf(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
+    V = Vn[order_Martin, :]
     Nf = length(K)
     NN = [size(K[f], 1) for f in 1:Nf]
-    println(NN)
     N = maximum([size(K[f], 1) for f in 1:Nf])
     H = size(K[1], 3)
-    println("N = $(N), H = $(H)")
     KK = zeros(N,N,H)
     counts = zeros(N, N, H)
     for f in 1:Nf
@@ -62,11 +63,12 @@ function get_filt_mat_mf(K,V, filestructs; mindist::Int=6, ppv_cutoff=0.8)
     end
     
     KK[KK.!=0] ./= counts[KK.!=0]
-    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[a,b]
+    @tullio J[i,j,a,b] := KK[i,j,h]*V[a,h]*V[b,h]
     J0 = mean(mean(J, dims = 3), dims=4)  
     JJ_zs = J .- mean(J, dims = 3) .- mean(J, dims = 4) .+ J0 
-    @tullio e[a,b] := J[i,j,a,b]#*(j!=i)
-    return (e .+ e')./2
+    @tullio e[a,b] := JJ_zs[i,j,a,b]*(j!=i)
+    e_tot = (e .+ e')./2 
+    return e_tot
 end
     
 
@@ -75,9 +77,10 @@ end
 function compute_referencescore(score,dist::Dict; mindist::Int=6, cutoff::Number=8.0)
     nc2 = length(score)
     #nc2 == size(d,1) || throw(DimensionMismatch("incompatible length $nc2 $(size(d,1))"))
-    out = Tuple{Int,Int,Float64,Float64}[]
+    out = Tuple{Int,Int,Float64,Float64, Int64}[]
     ctrtot = 0
     ctr = 0
+    contact = 0
     for i in 1:nc2
         sitei,sitej,plmscore = score[i][1],score[i][2], score[i][3]
         dij = if haskey(dist,(sitei,sitej)) 
@@ -89,8 +92,10 @@ function compute_referencescore(score,dist::Dict; mindist::Int=6, cutoff::Number
             ctrtot += 1
             if dij < cutoff
                 ctr += 1
+                push!(out,(sitei,sitej, plmscore, ctr/ctrtot, 1))
+            else
+                push!(out,(sitei,sitej, plmscore, ctr/ctrtot, 0))
             end
-            push!(out,(sitei,sitej, plmscore, ctr/ctrtot))
         end
     end 
     out
