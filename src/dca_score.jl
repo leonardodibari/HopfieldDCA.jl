@@ -121,7 +121,7 @@ function score_full(K, V; min_separation::Int=6)
 
     L, q = size(K)
     q, H = size(V)
-    @tullio Jtens[a, b, i, j] := K[i, h] * K[j, h] * (j != i) * V[a, h] * V[b, h]
+    @tullio Jtens[a, b, i, j] := K[i, h] * K[j, h] * V[a, h] * V[b, h]
 
     Jt = 0.5 * (Jtens + permutedims(Jtens,[2,1,4,3]))
 

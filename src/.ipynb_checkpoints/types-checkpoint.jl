@@ -1,4 +1,4 @@
-struct HopPlmVar_full{T1,T2}
+struct HopPlmVar_full{T1,T2} 
     N::Int
     q::Int    
     H::Int
@@ -15,7 +15,7 @@ function HopPlmVar_full(H, fastafile; T::DataType=Float32)
     N = size(Z,1); q = maximum(Z);  
     K = T.(rand(N, H)); V = T.(rand(q, H));
     potts_par = N*(N-1)*q*q/2;
-    att_par = H*N^2  + q*H;
+    att_par = H*N + q*H;
     ratio = round(att_par / potts_par, digits = 3);
     println("ratio=$ratio N=$N")
     T1 = typeof(W)
