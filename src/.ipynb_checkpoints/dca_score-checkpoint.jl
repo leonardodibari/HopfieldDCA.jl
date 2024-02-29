@@ -70,9 +70,7 @@ function get_filt_mat_mf(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, orde
     e_tot = (e .+ e')./2 
     return e_tot
 end
-    
-
-    
+  
 
 function compute_referencescore(score,dist::Dict; mindist::Int=6, cutoff::Number=8.0)
     nc2 = length(score)
@@ -103,7 +101,7 @@ end
 
 function score(K, V; min_separation::Int=6)
 
-    L, L, q = size(K)
+    L, L, H = size(K)
     q, H = size(V)
     @tullio Jtens[a, b, i, j] := K[i, j, h] * (j != i) * V[a, h] * V[b, h]
 
@@ -119,7 +117,7 @@ end
 
 function score_full(K, V; min_separation::Int=6)
 
-    L, q = size(K)
+    L, H = size(K)
     q, H = size(V)
     @tullio Jtens[a, b, i, j] := K[i, h] * K[j, h] * V[a, h] * V[b, h]
 
@@ -129,6 +127,43 @@ function score_full(K, V; min_separation::Int=6)
     ht = zeros(eltype(Jt), q, L)
     Jzsg, _ = gauge(Jt, ht, ZeroSumGauge())
     FN = compute_fn(Jzsg)
+    FNapc = correct_APC(FN)
+    return compute_ranking(FNapc, min_separation)
+end
+
+function mean_top_cont(KK, VV; top_c = 5)
+    M = deepcopy(KK)
+    N = size(M,1)
+    T = zeros(N,N)
+    count = zeros(N,N)
+
+    for h in 1:size(M,3)
+        for n in 1:top_c
+            i,j = convert(Tuple,argmax(M[:,:,h]))
+            T[i,j] += M[i,j,h] * VV[h]
+            count[i,j] += 1
+            M[i,j,h]=0
+        end
+    end
+    T[T.!=0] ./= count[count .!=0]
+    return T
+end
+
+function score_full2(K, V; min_separation::Int=6)
+
+    L, H = size(K)
+    q, H = size(V)
+    @tullio KK[i, j, h] := K[i, h] * K[j, h] *(j != i)
+    @tullio VVV[a,b,h] := V[a,h] * V[b,h]
+    VV = dropdims(dropdims(mean(mean(abs.(VVV), dims=1), dims=2), dims=1), dims=1)
+    println(size(VV))
+
+    KK = 0.5 * (KK .+ permutedims(KK,[2,1,3]))
+    
+    
+    #KK = KK .- mean(KK, dims=1) .- mean(KK, dims=2) .+ mean(mean(KK,dims=1), dims=2)
+    FN = mean_top_cont(KK, VV, top_c = 5)
+    #FN = FN .- mean(FN, dims=1) .- mean(FN, dims=2) .+ mean(mean(FN,dims=1), dims=2)
     FNapc = correct_APC(FN)
     return compute_ranking(FNapc, min_separation)
 end
