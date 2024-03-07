@@ -62,9 +62,12 @@ function ReadFasta(filename::AbstractString,max_gap_fraction::Real, theta::Any, 
     return W,Zint,N,M,q
 end
 
-
-order = [14, 35, 72, 76, 169, 595, 677, 763, 13354]
-folders = ["../DataAttentionDCA/data/PF00014/",
+order = [
+    14, 35, 72, 76, 169, 595, 677, 763, 13354,
+    90, 105, 131, 200, 412, 593, 1774, 1807, 2953, 7648
+]
+folders = [
+    "../DataAttentionDCA/data/PF00014/",
     "../DataAttentionDCA/data/PF00035/",
     "../DataAttentionDCA/data/PF00072/",
     "../DataAttentionDCA/data/PF00076/",
@@ -72,7 +75,19 @@ folders = ["../DataAttentionDCA/data/PF00014/",
     "../DataAttentionDCA/data/PF00595/",
     "../DataAttentionDCA/data/PF00677/",
     "../DataAttentionDCA/data/PF00763/",
-    "../DataAttentionDCA/data/PF13354/"]
+    "../DataAttentionDCA/data/PF13354/",
+    "../DataAttentionDCA/data/PF00090/",
+    "../DataAttentionDCA/data/PF00105/",
+    "../DataAttentionDCA/data/PF00131/",
+    "../DataAttentionDCA/data/PF00200/",
+    "../DataAttentionDCA/data/PF00412/",
+    "../DataAttentionDCA/data/PF00593/",
+    "../DataAttentionDCA/data/PF01774/",
+    "../DataAttentionDCA/data/PF01807/",
+    "../DataAttentionDCA/data/PF02953/",
+    "../DataAttentionDCA/data/PF07648/"
+]
+
 seq_paths = ["../DataAttentionDCA/data/PF00014/PF00014_mgap6.fasta.gz",
     "../DataAttentionDCA/data/PF00035/PF00035_full.fasta",
     "../DataAttentionDCA/data/PF00072/PF00072_mgap6.fasta.gz",
@@ -81,8 +96,21 @@ seq_paths = ["../DataAttentionDCA/data/PF00014/PF00014_mgap6.fasta.gz",
     "../DataAttentionDCA/data/PF00595/PF00595_mgap6.fasta.gz",
     "../DataAttentionDCA/data/PF00677/PF00677_full.fasta",
     "../DataAttentionDCA/data/PF00763/PF00763_full.fasta",
-    "../DataAttentionDCA/data/PF13354/PF13354_wo_ref_seqs.fasta.gz"]
-structs = ["../DataAttentionDCA/data/PF00014/PF00014_struct.dat",
+    "../DataAttentionDCA/data/PF13354/PF13354_wo_ref_seqs.fasta.gz", 
+    "../DataAttentionDCA/data/PF00090/PF00090.fasta",
+"../DataAttentionDCA/data/PF00105/PF00105.fasta",
+"../DataAttentionDCA/data/PF00131/PF00131.fasta",
+"../DataAttentionDCA/data/PF00200/PF00200.fasta",
+"../DataAttentionDCA/data/PF00412/PF00412.fasta",
+"../DataAttentionDCA/data/PF00593/PF00593.fasta",
+"../DataAttentionDCA/data/PF01774/PF01774.fasta",
+"../DataAttentionDCA/data/PF01807/PF01807.fasta",
+"../DataAttentionDCA/data/PF02953/PF02953.fasta",
+"../DataAttentionDCA/data/PF07648/PF07648.fasta"
+]
+
+structs = [
+    "../DataAttentionDCA/data/PF00014/PF00014_struct.dat",
     "../DataAttentionDCA/data/PF00035/Atomic_distances_PF00035.dat",
     "../DataAttentionDCA/data/PF00072/PF00072_struct.dat",
     "../DataAttentionDCA/data/PF00076/PF00076_struct.dat",
@@ -90,8 +118,18 @@ structs = ["../DataAttentionDCA/data/PF00014/PF00014_struct.dat",
     "../DataAttentionDCA/data/PF00595/PF00595_struct.dat",
     "../DataAttentionDCA/data/PF00677/Atomic_distances_PF00677.dat",
     "../DataAttentionDCA/data/PF00763/Atomic_distances_PF00763.dat",
-    "../DataAttentionDCA/data/PF13354/PF13354_struct.dat"]
-
+    "../DataAttentionDCA/data/PF13354/PF13354_struct.dat",
+    "../DataAttentionDCA/data/PF00090/PF00090_struct_struct.dat",
+    "../DataAttentionDCA/data/PF00105/PF00105_struct_struct.dat",
+    "../DataAttentionDCA/data/PF00131/PF00131_struct_struct.dat",
+    "../DataAttentionDCA/data/PF00200/PF00200_struct_struct.dat",
+    "../DataAttentionDCA/data/PF00412/PF00412_struct_struct.dat",
+    "../DataAttentionDCA/data/PF00593/PF00593_struct_struct.dat",
+    "../DataAttentionDCA/data/PF01774/PF01774_struct_struct.dat",
+    "../DataAttentionDCA/data/PF01807/PF01807_struct_struct.dat",
+    "../DataAttentionDCA/data/PF02953/PF02953_struct_struct.dat",
+    "../DataAttentionDCA/data/PF07648/PF07648_struct_struct.dat"
+]
 # Create dictionaries
 folders_dict = Dict(zip(order, folders))
 seq_paths_dict = Dict(zip(order, seq_paths))

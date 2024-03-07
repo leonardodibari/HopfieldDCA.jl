@@ -54,7 +54,8 @@ function multitrainer(fs::Vector{Int}, plmvars, n_epochs::Union{Int,Vector{Int}}
     lambda::Union{T,Vector{T}}=fill(0.001, length(plmvars)), 
     savefile::Union{String, Nothing} = nothing,
     fig_save = false,
-    par_save = false) where {T}
+    par_save = false, 
+    plm_ppv = true) where {T}
     
     if orthog == false
         foo = get_loss_J
@@ -145,12 +146,14 @@ function multitrainer(fs::Vector{Int}, plmvars, n_epochs::Union{Int,Vector{Int}}
 
         for i in 1:length(fs) 
             s = HopfieldDCA.score(m.Ks[i], m.V); PPV_h = HopfieldDCA.compute_PPV(s, structs_dict[fs[i]]);
-            @load joinpath(folders_dict[fs[i]], "PPV_s.jld2") ss
-            @load joinpath(folders_dict[fs[i]], "PPV_plm.jld2") splm
-    
-            fig,ax1 = plt.subplots()         
-            ax1.plot(ss, label="Stucture")
-            ax1.plot(splm, label="PLM")
+            
+            fig,ax1 = plt.subplots()  
+            if plm_ppv == true
+                @load joinpath(folders_dict[fs[i]], "PPV_s.jld2") ss
+                @load joinpath(folders_dict[fs[i]], "PPV_plm.jld2") splm
+                ax1.plot(ss, label="Stucture")
+                ax1.plot(splm, label="PLM")
+            end
             ax1.plot(PPV_h, label="Hop")
             ax1.set_xscale("log")
             ax1.set_xlabel("Number of Predictions")

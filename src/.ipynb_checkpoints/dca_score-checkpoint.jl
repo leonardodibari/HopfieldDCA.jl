@@ -25,6 +25,7 @@ function sel_good_res(score,filestruct; mindist::Int=6, ppv_cutoff=0.8)
 end
 
 
+
 function get_filt_mat_sf(K,Vn, filestruct; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
     V = Vn[order_Martin,:]
     gr = sel_good_res(K, V, filestruct, mindist = mindist, ppv_cutoff = ppv_cutoff)
@@ -41,6 +42,32 @@ function get_filt_mat_sf(K,Vn, filestruct; mindist::Int=6, ppv_cutoff=0.8, order
     JJ_zs = J .- mean(J, dims = 3) .- mean(J, dims = 4) .+ J0 
     @tullio e[a,b] := JJ_zs[i,j,a,b]*(j!=i)
     return (e.+e')./2
+end
+
+
+function get_filt_mat_mf2(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
+    V = Vn[order_Martin, :]
+    Nf = length(K)
+    NN = [size(K[f], 1) for f in 1:Nf]
+    N = maximum([size(K[f], 1) for f in 1:Nf])
+    H = size(K[1], 3)
+    KK = zeros(N,N,H)
+    counts = zeros(N, N, H)
+    for f in 1:Nf
+        gr = sel_good_res(K[f], V, filestructs[f], mindist = mindist, ppv_cutoff = ppv_cutoff) 
+        println(size(gr))
+        for n in 1:size(gr,1)
+            for h in 1:H
+                KK[gr[n][1], gr[n][2], h] += K[f][gr[n][1], gr[n][2], h]
+                counts[gr[n][1], gr[n][2], h] += 1
+            end
+        end
+    end
+    
+    KK[KK.!=0] ./= counts[KK.!=0]
+    
+    @tullio res[h] := KK[i,j,h]
+    return res
 end
 
 function get_filt_mat_mf(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
