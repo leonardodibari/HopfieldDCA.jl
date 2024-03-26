@@ -24,6 +24,31 @@ function sel_good_res(score,filestruct; mindist::Int=6, ppv_cutoff=0.8)
     return map(x->(x[1], x[2]), only_contacts)
 end
 
+function epis_score(K, V, Z; q = 21, min_separation::Int=6)
+    seq = Z[:,1]
+    N = size(Z,1)
+    @tullio J0[a, i, b, j] := K[i,j,h] * V[a,h] * V[b,h]
+    JJ = zeros(size(J0)) 
+    for a in 1:q
+        for b in 1:q
+            for i in 1:N
+                for j in 1:N
+                    a_i = seq[i]
+                    b_j = seq[j]
+                    JJ[a, i ,b, j] = J0[a, i, b, j] - J0[a, i, b_j, j] - J0[a_i, i, b, j] + J0[a_i, i, b_j, j]
+                end
+            end
+        end
+    end
+    Jzsg = zsg(JJ)
+    FN = compute_fn(Jzsg, N, q)
+    FNapc = correct_APC(FN)
+    return compute_ranking(FNapc, min_separation)
+end         
+        
+    
+    
+
 
 
 function get_filt_mat_sf(K,Vn, filestruct; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
@@ -146,7 +171,7 @@ function score_full(K, V; min_separation::Int=6)
 
     L, H = size(K)
     q, H = size(V)
-    @tullio Jtens[a, b, i, j] := K[i, h] * K[j, h] * V[a, h] * V[b, h]
+    @tullio Jtens[a, b, i, j] := K[i, h] * K[j, h] * V[a, h] * V[b, h] * (j != i)
 
     Jt = 0.5 * (Jtens + permutedims(Jtens,[2,1,4,3]))
 
@@ -158,7 +183,7 @@ function score_full(K, V; min_separation::Int=6)
     return compute_ranking(FNapc, min_separation)
 end
 
-function mean_top_cont(KK, VV; top_c = 5)
+function mean_top_cont(KK;top_c = 20)
     M = deepcopy(KK)
     N = size(M,1)
     T = zeros(N,N)
@@ -166,33 +191,36 @@ function mean_top_cont(KK, VV; top_c = 5)
 
     for h in 1:size(M,3)
         for n in 1:top_c
-            i,j = convert(Tuple,argmax(M[:,:,h]))
-            T[i,j] += M[i,j,h] * VV[h]
+            i,j = convert(Tuple,argmax(abs.(M[:,:,h])))
+            T[i,j] += M[i,j,h] #* VV[h]
             count[i,j] += 1
             M[i,j,h]=0
         end
     end
-    T[T.!=0] ./= count[count .!=0]
+    #T[T.!=0] ./= count[count .!=0]
     return T
 end
 
-function score_full2(K, V; min_separation::Int=6)
+function score_full2(K, V; min_separation::Int=6, top_c = 20)
 
     L, H = size(K)
     q, H = size(V)
     @tullio KK[i, j, h] := K[i, h] * K[j, h] *(j != i)
-    @tullio VVV[a,b,h] := V[a,h] * V[b,h]
-    VV = dropdims(dropdims(mean(mean(abs.(VVV), dims=1), dims=2), dims=1), dims=1)
-    println(size(VV))
+    #@tullio VVV[a,b,h] := V[a,h] * V[b,h]
+    #VV = dropdims(dropdims(mean(mean(abs.(VVV), dims=1), dims=2), dims=1), dims=1)
+    #println(size(VV))
 
     KK = 0.5 * (KK .+ permutedims(KK,[2,1,3]))
-    
+    KKK = zeros(L,L,H)
+    for h in 1:H
+        KKK[:,:,h] = correct_APC(KK[:,:,h])
+    end
     
     #KK = KK .- mean(KK, dims=1) .- mean(KK, dims=2) .+ mean(mean(KK,dims=1), dims=2)
-    FN = mean_top_cont(KK, VV, top_c = 5)
+    FN = mean_top_cont(KK, top_c = top_c)
     #FN = FN .- mean(FN, dims=1) .- mean(FN, dims=2) .+ mean(mean(FN,dims=1), dims=2)
     FNapc = correct_APC(FN)
-    return compute_ranking(FNapc, min_separation)
+    return compute_ranking(abs.(FN), min_separation)
 end
 
 function score(Jtens; min_separation::Int=6)

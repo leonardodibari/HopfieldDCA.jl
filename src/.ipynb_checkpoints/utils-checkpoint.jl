@@ -47,6 +47,13 @@ function quickread(fastafile; moreinfo=false)
     return Matrix{Int8}(Z), Weights
 end
 
+
+function quickread(fastafile, n_seq::Int; moreinfo=false)  
+    Weights, Z, N, M, _ = ReadFasta(fastafile, 0.9, :auto, true, n_seq, verbose = false);
+    moreinfo && return Weights, Z, N, M
+    return Matrix{Int8}(Z), Weights
+end
+
 function ReadFasta(filename::AbstractString,max_gap_fraction::Real, theta::Any, remove_dups::Bool;verbose=true)
     Z = read_fasta_alignment(filename, max_gap_fraction)
     if remove_dups
@@ -61,6 +68,23 @@ function ReadFasta(filename::AbstractString,max_gap_fraction::Real, theta::Any, 
     Zint=round.(Int,Z)
     return W,Zint,N,M,q
 end
+
+function ReadFasta(filename::AbstractString,max_gap_fraction::Real, theta::Any, remove_dups::Bool, n_seq::Int;verbose=true)
+    Z = read_fasta_alignment(filename, max_gap_fraction)
+    if remove_dups
+        Z, _ = remove_duplicate_sequences(Z,verbose=verbose)
+    end
+    ZZ = Z[:, sample(1:size(Z,2), n_seq, replace=false, ordered=true)]
+    N, M = size(Z)
+    q = round(Int,maximum(Z))
+    q > 32 && error("parameter q=$q is too big (max 31 is allowed)")
+    W , Meff = compute_weights(ZZ,q,theta,verbose=verbose)
+    println("Meff = $(Meff)")
+    rmul!(W, 1.0/Meff)
+    Zint=round.(Int,ZZ)
+    return W,Zint,N,M,q
+end
+
 
 order = [
     14, 35, 72, 76, 169, 595, 677, 763, 13354,

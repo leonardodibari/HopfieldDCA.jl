@@ -1,4 +1,4 @@
-struct HopPlmVar_full{T1,T2} 
+struct HopPlmVar_full{T,T1,T2} 
     N::Int
     q::Int    
     H::Int
@@ -6,28 +6,29 @@ struct HopPlmVar_full{T1,T2}
     K::T2
     V::T2
     W::T1
+    ratio::T
 end
 
 function HopPlmVar_full(H, fastafile; T::DataType=Float32)
-    println("final version")
+    println("no fields")
     Z, W = quickread(fastafile)
     W = T.(W)
     N = size(Z,1); q = maximum(Z);  
     K = T.(rand(N, H)); V = T.(rand(q, H));
     potts_par = N*(N-1)*q*q/2;
-    att_par = H*N + q*H;
-    ratio = round(att_par / potts_par, digits = 3);
+    att_par = H*N + q*H #+ q*N;
+    ratio = T(round(att_par / potts_par, digits = 3));
     println("ratio=$ratio N=$N")
     T1 = typeof(W)
     T2 = typeof(V)
-    HopPlmVar_full{T1,T2}(N, q, H, Z, K, V, W)
+    HopPlmVar_full{T,T1,T2}(N, q, H, Z, K, V, W, ratio)
 end
 
 
 
 
 
-struct HopPlmVar_gen{T1,T2,T3}
+struct HopPlmVar_gen{T,T1,T2,T3}
     N::Int
     q::Int    
     H::Int
@@ -35,6 +36,7 @@ struct HopPlmVar_gen{T1,T2,T3}
     K::T3
     V::T2
     W::T1
+    ratio::T
 end
 
 function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
@@ -44,15 +46,30 @@ function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
     N = size(Z,1); q = maximum(Z);  
     K = T.(rand(N, N, H)); V = T.(rand(q, H));
     potts_par = N*(N-1)*q*q/2;
-    att_par = H*N^2  + q*H;
-    ratio = round(att_par / potts_par, digits = 3);
+    att_par = H*N^2 + q*H;
+    ratio = T(round(att_par / potts_par, digits = 3));
     println("ratio=$ratio N=$N")
     T1 = typeof(W)
     T2 = typeof(V)
     T3 = typeof(K)
-    HopPlmVar_gen{T1,T2,T3}(N, q, H, Z, K, V, W)
+    HopPlmVar_gen{T,T1,T2,T3}(N, q, H, Z, K, V, W, ratio)
 end
 
+function HopPlmVar_gen(H, fastafile, n_seq; T::DataType=Float32)
+    println("final version, reduced Z")
+    Z, W = quickread(fastafile, n_seq)
+    W = T.(W)
+    N = size(Z,1); q = maximum(Z);  
+    K = T.(rand(N, N, H)); V = T.(rand(q, H));
+    potts_par = N*(N-1)*q*q/2;
+    att_par = H*N^2  + q*H;
+    ratio = T(round(att_par / potts_par, digits = 3));
+    println("ratio=$ratio N=$N")
+    T1 = typeof(W)
+    T2 = typeof(V)
+    T3 = typeof(K)
+    HopPlmVar_gen{T,T1,T2,T3}(N, q, H, Z, K, V, W, ratio)
+end
 
 struct Stg{T1, T2, T3, T4}
     KK::T3

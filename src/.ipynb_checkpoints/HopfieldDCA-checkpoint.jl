@@ -12,6 +12,7 @@ import Flux: DataLoader, Adam, gradient
 import Flux.Optimise: update! 
 import Flux.Optimisers: setup
 import DCAUtils: read_fasta_alignment, remove_duplicate_sequences, compute_weights, add_pseudocount, compute_weighted_frequencies
+import StatsBase: sample, ProbabilityWeights
 using LoopVectorization
 using LogExpFunctions
 using Tullio
@@ -23,9 +24,10 @@ include("loss_grad.jl")
 include("dca_score.jl")
 include("trainers.jl")
 include("multitrainer.jl")
+include("generative.jl")
 
 export quickread, HopPlmVar_gen, Stg, get_anal_grad, HopPlmVar_full, folders_dict, seq_paths_dict, structs_dict
 export get_loss_J, trainer, trainer_J, trainer_fullJ, trainer_J_fixedV, SmallStg, get_new_grad, get_loss_fullJ 
-export multitrainer,multitrainer_fixedV
+export multitrainer, multitrainer_full, multitrainer_fixedV, score, compute_PPV, ar_gen
 
 end

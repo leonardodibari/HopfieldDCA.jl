@@ -1,17 +1,19 @@
 function get_loss_J(K::Array{T,3}, 
     V::Array{T,2}, 
+    h::Array{T,2},
     Z::Array{Int,2}, 
     _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
     
-    @tullio KK[i,j,h] := K[i,j,h]*(j!=i)
+    TT = typeof(lambda)
+    @tullio KK[i,j,h] := K[i,j,h]*(j != i)
     @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
-    @tullio en[a, i, m] := J[a, i, Z[j, m], j]
-    @tullio data_en[i, m] := en[Z[i, m], i, m]
-    #log_z = logsumexp(en)[1,:,:]
+    @tullio en0[a, i, m] := J[a, i, Z[j, m], j];
+    en = en0 .+ h 
+    @tullio data_en[i, m] := en[Z[i, m], i, m] #+ h[Z[i, m], i]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
   
-    return sum(loss) + lambda * sum(abs2, J)
+    return sum(loss) + lambda * sum(abs2, J) + 0.0 * lambda * sum(abs2, h)
 end
 
 function get_loss_J_orthog(K::Array{T,3}, 
@@ -19,11 +21,10 @@ function get_loss_J_orthog(K::Array{T,3},
     Z::Array{Int,2}, 
     _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
     
-    @tullio KK[i,j,h] := K[i,j,h]*(j!=i)
+    @tullio KK[i,j,h] := K[i,j,h]*(j != i)
     @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[a, i, Z[j, m], j]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
-    #log_z = logsumexp(en)[1,:,:]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
   
@@ -33,19 +34,20 @@ function get_loss_J_orthog(K::Array{T,3},
 end
 
 function get_loss_J_parts(K::Array{T,3}, 
-    V::Array{T,2}, 
+    V::Array{T,2},
+    h::Array{T,2},
     Z::Array{Int,2}, 
     _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
     
-    @tullio KK[i,j,h] := K[i,j,h]*(j!=i)
-    @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
-    @tullio en[a, i, m] := J[a, i, Z[j, m], j]
-    @tullio data_en[i, m] := en[Z[i, m], i, m]
-    #log_z = logsumexp(en)[1,:,:]
+    @tullio KK[i,j,h] := K[i,j,h]*(j != i)
+    @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h] 
+    @tullio en0[a, i, m] := J[a, i, Z[j, m], j];
+    en = en0 .+ h
+    @tullio data_en[i, m] := en[Z[i, m], i, m] #+ h[Z[i, m], i]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
-    return round(sum(loss), digits = 3), round(lambda * sum(abs2, J), digits = 3) 
+    return round(sum(loss), digits = 3), round(lambda * sum(abs2, J) + 0.0 * lambda * sum(abs2, h), digits = 3) 
 end
 
 
@@ -54,11 +56,10 @@ function get_loss_J_orthog_parts(K::Array{T,3},
     Z::Array{Int,2}, 
     _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
     
-    @tullio KK[i,j,h] := K[i,j,h]*(j!=i)
+    @tullio KK[i,j,h] := K[i,j,h]*(j != i)
     @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[a, i, Z[j, m], j]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
-    #log_z = logsumexp(en)[1,:,:]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
@@ -72,13 +73,12 @@ function get_loss_fullJ_orthog(K::Array{T,2},
     Z::Array{Int,2}, 
     _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
     
-    @tullio KK[i,j,h] := K[i,h]*K[j,h]
+    @tullio KK[i,j,h] := K[i,h]*K[j,h]*(j != i)
     @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[a, i, Z[j, m], j]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
-    
     ort_loss = orthotullio(V)
   
     return sum(loss) + lambda * sum(abs2, J) + ort * ort_loss
@@ -89,7 +89,7 @@ function get_loss_fullJ_orthog_parts(K::Array{T,2},
     Z::Array{Int,2}, 
     _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
     
-    @tullio KK[i,j,h] := K[i,h]*K[j,h]
+    @tullio KK[i,j,h] := K[i,h]*K[j,h]*(j != i)
     @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
     @tullio en[a, i, m] := J[a, i, Z[j, m], j]
     @tullio data_en[i, m] := en[Z[i, m], i, m]
@@ -101,37 +101,46 @@ function get_loss_fullJ_orthog_parts(K::Array{T,2},
 end
 
 function get_loss_fullJ(K::Array{T,2}, 
-    V::Array{T,2}, 
+    V::Array{T,2},
+    h::Array{T,2},
     Z::Array{Int,2}, 
-    _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
+    _w::Array{T, 1}; lambda::T = T(0.001), ort = 50, ar = false) where {T}
     
-    @tullio KK[i,j,h] := K[i,h]*K[j,h]
-    @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
-    @tullio en[a, i, m] := J[a, i, Z[j, m], j]
-    @tullio data_en[i, m] := en[Z[i, m], i, m]
-    #log_z = logsumexp(en)[1,:,:]
+    if ar == true
+        @tullio KK[i,j,h] := K[i,h]*K[j,h]*(j < i);
+    else 
+        @tullio KK[i,j,h] := K[i,h]*K[j,h]*(j != i);
+    end
+    @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h];
+    @tullio en0[a, i, m] := J[a, i, Z[j, m], j];
+    en = en0 .+ h
+    @tullio data_en[i, m] := en[Z[i, m], i, m] #+ h[Z[i, m], i]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
   
-    return sum(loss) + lambda * sum(abs2, J)
-    #return sum(loss) + lambda * (sum(abs2, K) + sum(abs2, V))
+    return sum(loss) + lambda * (sum(abs2, K) + sum(abs2, V) + sum(abs2, h))
 end
 
 function get_loss_fullJ_parts(K::Array{T,2}, 
     V::Array{T,2}, 
+    h::Array{T,2},
     Z::Array{Int,2}, 
-    _w::Array{T, 1}; lambda::T = T(0.001), ort = 50) where {T}
+    _w::Array{T, 1}; lambda::T = T(0.001), ort = 50, ar = false) where {T}
+   
     
-    @tullio KK[i,j,h] := K[i,h]*K[j,h]
+    if ar == true
+        @tullio KK[i,j,h] := K[i,h]*K[j,h]*(j < i);
+    else 
+        @tullio KK[i,j,h] := K[i,h]*K[j,h]*(j != i);
+    end
     @tullio J[a,i,b,j] := KK[i,j,h]*V[a,h]*V[b,h]
-    @tullio en[a, i, m] := J[a, i, Z[j, m], j]
-    @tullio data_en[i, m] := en[Z[i, m], i, m]
+    @tullio en0[a, i, m] := J[a, i, Z[j, m], j]
+    en = en0 .+ h
+    @tullio data_en[i, m] := en[Z[i, m], i, m] #+ h[Z[i,m], i]
     log_z = dropdims(LogExpFunctions.logsumexp(en, dims=1), dims=1)
     @tullio loss[i] := _w[m]*(log_z[i, m] - data_en[i,m])
     
-    return round(sum(loss), digits = 3), round(lambda * sum(abs2, J), digits = 3) 
-    #return round(sum(loss), digits = 3), round(lambda * (sum(abs2, K) + sum(abs2, V)), digits = 3) 
-
+    return round(sum(loss), digits = 3), round(lambda * (sum(abs2, K) + sum(abs2, V) + sum(abs2, h)) , digits = 3) 
 end
 
 
