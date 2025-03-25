@@ -10,13 +10,12 @@ struct HopPlmVar_full{T,T1,T2}
 end
 
 function HopPlmVar_full(H, fastafile; T::DataType=Float32)
-    println("no fields")
     Z, W = quickread(fastafile)
     W = T.(W)
     N = size(Z,1); q = maximum(Z);  
     K = T.(rand(N, H)); V = T.(rand(q, H));
     potts_par = N*(N-1)*q*q/2;
-    att_par = H*N + q*H #+ q*N;
+    att_par = H*N + q*H + q*N;
     ratio = T(round(att_par / potts_par, digits = 3));
     println("ratio=$ratio N=$N")
     T1 = typeof(W)
@@ -46,7 +45,7 @@ function HopPlmVar_gen(H, fastafile; T::DataType=Float32)
     N = size(Z,1); q = maximum(Z);  
     K = T.(rand(N, N, H)); V = T.(rand(q, H));
     potts_par = N*(N-1)*q*q/2;
-    att_par = H*N^2 + q*H;
+    att_par = H*N^2 + q*H + q*N;
     ratio = T(round(att_par / potts_par, digits = 3));
     println("ratio=$ratio N=$N")
     T1 = typeof(W)
@@ -62,7 +61,7 @@ function HopPlmVar_gen(H, fastafile, n_seq; T::DataType=Float32)
     N = size(Z,1); q = maximum(Z);  
     K = T.(rand(N, N, H)); V = T.(rand(q, H));
     potts_par = N*(N-1)*q*q/2;
-    att_par = H*N^2  + q*H;
+    att_par = H*N^2  + q*H + q*N;
     ratio = T(round(att_par / potts_par, digits = 3));
     println("ratio=$ratio N=$N")
     T1 = typeof(W)

@@ -1,28 +1,4 @@
-function multi_loss(Ks, V, Zs, Ws; lambda = lambda, orthog = false, ort = 50)
-    
-   
-    Nf = length(Ks)
-    T = eltype(lambda)
-    tot_loss = T(0.0)
-    for i in 1:Nf
-        tot_loss = tot_loss + get_loss_J(Ks[i], V, Zs[i], Ws[i], lambda=lambda[i])
-    end
-
-    if orthog == true
-        n_V = V ./ sqrt.(sum(abs2,V, dims=1))
-        ort_loss = T(0.0)
-        for h in 1:size(V,2)
-            for k in h+1:size(V,2)
-                ort_loss += abs(n_V[:,h]'*n_V[:,k])
-            end
-        end
-        return tot_loss + ort * tot_loss
-    else
-        return tot_loss
-    end
-end
-
-function multi_loss2(Ks, V, Zs, Ws; lambda = lambda, orthog = false, ort = 50)
+function multi_loss(Ks, V, hs, Zs, Ws; lambda = lambda, orthog = false, ort = 50)
     
     if orthog == true
         foo = get_loss_J_orthog
@@ -35,7 +11,7 @@ function multi_loss2(Ks, V, Zs, Ws; lambda = lambda, orthog = false, ort = 50)
     T = eltype(lambda)
     tot_loss = T(0.0)
     for i in 1:Nf
-        tot_loss = tot_loss + foo(Ks[i], V, Zs[i], Ws[i], lambda=lambda[i], ort = ort)
+        tot_loss = tot_loss + foo(Ks[i], V, hs[i], Zs[i], Ws[i], lambda=lambda[i], ort = ort)
     end
 
     return tot_loss
@@ -94,8 +70,10 @@ function multitrainer(fs::Vector{Int}, plmvars, n_epochs::Union{Int,Vector{Int}}
     m = if init_m !== Nothing
         init_m
     else
-        (Ks = init.(TT, Ns, Ns, H), V = init(TT, q, H))
+        (Ks = init.(TT, Ns, Ns, H), hs = init.(TT, q, Ns), V = init(TT, q, H))
     end
+    
+    println(size(m.hs[1]))
 
     t = setup(Adam(η), m)
 
@@ -111,13 +89,13 @@ function multitrainer(fs::Vector{Int}, plmvars, n_epochs::Union{Int,Vector{Int}}
         for pf in loader
             ws = [pf[m][2]/sum(pf[m][2]) for m in 1:NF]
             Zs = [pf[m][1] for m in 1:NF] 
-            g = gradient(x->multi_loss2(x.Ks[flags], x.V, Zs[flags], ws[flags], lambda = lambda[flags], 
+            g = gradient(x->multi_loss(x.Ks[flags], x.V, x.hs[flags], Zs[flags], ws[flags], lambda = lambda[flags], 
                     orthog = orthog, ort = ort),m)[1]
             update!(t,m,g)
         end
 
         if i % each_step == 0
-            losses = [round(foo(m.Ks[n], m.V, D[n][1], D[n][2], 
+            losses = [round(foo(m.Ks[n], m.V, m.hs[n], D[n][1], D[n][2], 
                         lambda=lambda[n],  ort = ort),digits=2) for n in 1:NF]
             print("Epoch $i ") 
             [print("PF$(fs[n]) = $(losses[n]), ") for n in 1:NF]

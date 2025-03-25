@@ -1,3 +1,36 @@
+
+function get_J(K, V::Array{T,2}) where {T}
+    
+    if ndims(K) == 3
+        @tullio J[a, i, b, j] := K[i, j, h] * V[a, h] * V[b, h] * (j != i)
+    elseif ndims(K) == 2
+        @tullio J[a, i, b, j] := K[i, h] * K[j, h] * V[a, h] * V[b, h] * (j<i)
+    else 
+        println("Error: Invalid K, expected 2-d r 3-d array")
+        return 0
+    end
+    
+    return J
+end
+   
+
+function get_J(K, V::Array{T,3}) where {T}
+    
+    if ndims(K) == 3
+        @tullio J[a, i, b, j] := K[i, j, h] * V[a, b, h] * (j != i)
+    elseif ndims(K) == 2
+        @tullio J[a, i, b, j] := K[i, h] * K[j, h] * V[a, b, h] * (j<i)
+    else 
+        println("Error: Invalid K, expected 2-d r 3-d array")
+        return 0
+    end
+    
+    return J
+end
+   
+        
+        
+        
 function norma_col(inp)
     x = copy(inp)
     for (i,col) in enumerate(eachcol(x))

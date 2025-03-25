@@ -95,7 +95,7 @@ function get_filt_mat_mf2(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, ord
     return res
 end
 
-function get_filt_mat_mf(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6])
+function get_filt_mat_mf(K,Vn, filestructs; mindist::Int=6, ppv_cutoff=0.8, order_Martin = [1, 2, 5, 8, 10, 11, 18, 19, 20, 13, 7, 9, 15, 3, 4, 12, 14, 16, 17, 6, 21])
     V = Vn[order_Martin, :]
     Nf = length(K)
     NN = [size(K[f], 1) for f in 1:Nf]
